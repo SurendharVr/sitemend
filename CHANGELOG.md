@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **A reproducible sample for the benchmark (Addendum 5, awaiting sign-off).** The replay
+  repositories were Claude's picks from memory; they are replaced by a procedure anyone can
+  rerun: a saved GitHub code-search frame per stack, a shuffle with seed 20261017, recorded
+  eligibility checks, a mechanical build-command rule and a build check at the cutoff
+  commit, taking the first 3 repositories per stack that build (15 in all, 40 commits each).
+  Every repository used in the plan so far is excluded. The full run of the old sample was
+  cancelled and its data is not used. No behaviour changed.
 - **Sampling and sweep tooling for Addendum 5.** `bench/sample/sample.py` implements the
   reproducible draw: `frame` saves each stack's code-search results once, `draw` walks them
   in the seed-20261017 order through the eligibility rules and the mechanical build-command
