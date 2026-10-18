@@ -3641,5 +3641,124 @@ class TestSeededRecall(unittest.TestCase):
         self.assertNotIn("Tool failures (sitemend", md)
 
 
+def _bench_module(*parts):
+    """Load a bench/ script as a module; None when bench/ is absent (the sdist)."""
+    import importlib.util
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "bench", *parts)
+    if not os.path.isfile(path):
+        return None
+    spec = importlib.util.spec_from_file_location(parts[-1][:-3], path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+class TestSampling(unittest.TestCase):
+    """bench/sample/sample.py draws the replay sample by Addendum 5's rules, so that anyone
+    can rerun it from the saved frame and get the same repositories."""
+
+    def setUp(self):
+        self.S = _bench_module("sample", "sample.py")
+        if self.S is None:
+            raise unittest.SkipTest("bench/ is not shipped in the sdist")
+
+    def test_frame_keeps_each_repositorys_shallowest_matching_config(self):
+        items = [{"repo": "o/a", "path": "docs/docusaurus.config.js"},
+                 {"repo": "o/a", "path": "docusaurus.config.ts"},
+                 {"repo": "o/b", "path": "x/docusaurus.config.backup.js"},
+                 {"repo": "o/c", "path": "site/docusaurus.config.mts"}]
+        pattern = self.S.STACKS[0][2]
+        self.assertEqual(self.S.reduce_frame(items, pattern),
+                         {"o/a": "docusaurus.config.ts", "o/c": "site/docusaurus.config.mts"})
+
+    def test_draw_order_is_the_published_seed(self):
+        import random
+        repos = ["c/z", "a/x", "b/y", "d/w"]
+        expected = sorted(repos)
+        random.Random(20261017).shuffle(expected)
+        self.assertEqual(self.S.SEED, 20261017)
+        self.assertEqual(self.S.draw_order(repos), expected)
+        self.assertEqual(self.S.draw_order(list(reversed(repos))), expected)
+
+    def test_vitepress_site_folder_holds_dot_vitepress(self):
+        self.assertEqual(self.S.site_dir("vitepress", "docs/.vitepress/config.ts"), "docs")
+        self.assertEqual(self.S.site_dir("vitepress", ".vitepress/config.ts"), "")
+        self.assertEqual(self.S.site_dir("astro", "site/astro.config.mjs"), "site")
+
+    def test_eligibility_reasons(self):
+        ok = {"private": False, "fork": False, "archived": False, "homepage": "https://example.org"}
+        self.assertIsNone(self.S.eligibility(ok, 75, "o/r"))
+        self.assertIn("commits", self.S.eligibility(ok, 74, "o/r"))
+        self.assertEqual(self.S.eligibility(dict(ok, fork=True), 99, "o/r"), "fork")
+        self.assertEqual(self.S.eligibility(dict(ok, archived=True), 99, "o/r"), "archived")
+        self.assertIn("used in this plan", self.S.eligibility(ok, 99, "Electron/Website"))
+        self.assertIn("docusaurus.io", self.S.eligibility(dict(ok, homepage="https://www.docusaurus.io/"), 99, "o/r"))
+
+    def _rule(self, files, root_pkg=None, site_pkg=None, d="", yarnrc=None, cfg="", nvmrc=None, stack="docusaurus"):
+        site_pkg = {"scripts": {"build": "x"}} if site_pkg is None else site_pkg
+        return self.S.build_rule(stack, d, files, root_pkg, yarnrc, site_pkg, cfg, nvmrc, "build")
+
+    def test_build_rule_pins_pnpm_by_lockfile_unless_the_repo_pins_it(self):
+        (cmd, out, node), _ = self._rule({"pnpm-lock.yaml": "9.0"}, d="site", nvmrc="v22.3.0")
+        self.assertEqual(cmd, "corepack pnpm@9.15.9 install --frozen-lockfile && "
+                              "(cd site && corepack pnpm@9.15.9 run build)")
+        self.assertEqual((out, node), ("site/build", "22"))
+        (cmd, _, node), _ = self._rule({"pnpm-lock.yaml": "9.0"},
+                                       root_pkg={"packageManager": "pnpm@10.1.0", "engines": {"node": ">=20"}})
+        self.assertEqual((cmd, node), ("pnpm install --frozen-lockfile && pnpm run build", "20"))
+
+    def test_build_rule_for_yarn_and_npm(self):
+        self.assertTrue(self._rule({"yarn.lock": ""})[0][0].startswith("corepack yarn@1.22.22 install --frozen-lockfile"))
+        rule, _ = self._rule({"yarn.lock": ""}, yarnrc="yarnPath: .yarn/releases/yarn-4.1.0.cjs\n")
+        self.assertTrue(rule[0].startswith("node .yarn/releases/yarn-4.1.0.cjs install --immutable"))
+        self.assertIn("neither packageManager nor yarnPath", self._rule({"yarn.lock": ""}, yarnrc="nodeLinker: pnp\n")[1])
+        (cmd, _, node), _ = self._rule({"package-lock.json": ""}, d="docs",
+                                       root_pkg={"scripts": {"build": "turbo build"}}, nvmrc="lts/*")
+        self.assertEqual(cmd, "npm ci && ((cd docs && npm run build) || (npm run build && (cd docs && npm run build)))")
+        self.assertEqual(node, "24")
+
+    def test_build_rule_refuses_what_it_cannot_build_mechanically(self):
+        self.assertIn("no lockfile", self._rule({})[1])
+        self.assertIn("no package.json build script", self._rule({"package-lock.json": ""}, site_pkg={})[1])
+        self.assertIn("output: 'export'", self._rule({"package-lock.json": ""}, stack="nextjs", cfg="module.exports = {}")[1])
+        rule, why = self._rule({"package-lock.json": ""}, stack="nextjs", cfg='export default { output: "export" }')
+        self.assertIsNone(why)
+
+
+class TestSweepReport(unittest.TestCase):
+    """bench/sweep/report.py flags crashes, slow audits and site-wide high findings for a
+    person to review; it decides nothing."""
+
+    def test_flags(self):
+        report = _bench_module("sweep", "report.py")
+        if report is None:
+            raise unittest.SkipTest("bench/ is not shipped in the sdist")
+        d = tempfile.mkdtemp(prefix="sitemend-sweep-")
+        self.addCleanup(shutil.rmtree, d, True)
+        site = os.path.join(d, "out", "o__a", "s1")
+        os.makedirs(site)
+        pages = ["/p{0}".format(i) for i in range(10)]
+        with open(os.path.join(site, "findings.json"), "w") as fh:
+            json.dump({"findings": [{"id": "S1-X", "severity": "high", "pages": pages},
+                                    {"id": "S3-Y", "severity": "medium", "pages": pages}]}, fh)
+        with open(os.path.join(site, "crawl.json"), "w") as fh:
+            json.dump({"meta": {"page_count": 10}}, fh)
+        builds = os.path.join(d, "builds.csv")
+        with open(builds, "w", encoding="utf-8", newline="") as fh:
+            fh.write("repo,sha,status,build_seconds,audit_seconds,node,error\n"
+                     "o/a,s1,ok,10,700,v24,\n"
+                     "o/b,s2,audit_failed,10,5,v24,ValueError: Invalid IPv6 URL\n"
+                     "o/c,s3,build_failed,10,,v24,exit 1\n")
+        r = subprocess.run([sys.executable, os.path.join(os.path.dirname(report.__file__), "report.py"),
+                            "--builds", builds, "--audits", d, "--out", d], capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        with open(os.path.join(d, "sweep.md"), encoding="utf-8") as fh:
+            md = fh.read()
+        self.assertIn("**3 repositories: 2 built, 1 did not; of those built, sitemend could not audit 1.**", md)
+        self.assertIn("| o/a | slow (700 s); site-wide S1-X (10 of 10 pages) |", md)
+        self.assertIn("| o/b | crash | ValueError: Invalid IPv6 URL |", md)
+        self.assertNotIn("S3-Y", md)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

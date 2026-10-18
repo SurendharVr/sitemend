@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **Sampling and sweep tooling for Addendum 5.** `bench/sample/sample.py` implements the
+  reproducible draw: `frame` saves each stack's code-search results once, `draw` walks them
+  in the seed-20261017 order through the eligibility rules and the mechanical build-command
+  rule (recording every repository in `draw.csv`), and `select` takes the first 3 per
+  stack that built. `bench/sweep/report.py` reports the robustness sweep: crashes, slow
+  audits and site-wide high findings, flagged for review. The replay workflow gains a
+  `config` input so either candidate list can be build-checked at one commit. Nothing is
+  drawn until Addendum 5 is signed. No behaviour changed.
 - **First verdicts in the evidence ledger.** B judged the 14 blocking findings from the
   1.7.0 pilot (electron/website `273491c35a`, a new page whose language links and hreflang
   alternates point to translations that 404 on the live site) `true_regression`, by a live
