@@ -390,3 +390,20 @@ Decided by B before any replay or seeded data exists on the new sample:
   in the first check).
 
 Decided by (B): SurendharVr. Date: 2026-10-18.
+
+## Addendum 7: an output with no pages (2026-10-18, before any measurement on the new sample)
+
+In the build check, first10forward/f10f-spa (Hugo, draw rank 1371) built, but its output
+folder (`public/`) held no HTML pages, so sitemend audited nothing ("crawled 0 pages").
+Rule 6 skips a candidate whose output folder is missing; it did not say what to do with
+one that exists but is empty. Left as taken, every one of its replay commits would be a
+tool failure and Hugo would rest on two sites.
+
+Decided by B before any replay or seeded data exists on the new sample: a build whose
+output holds no HTML pages counts as a missing output folder, so the candidate is
+skipped. Applied to every candidate; f10f-spa is the only one it affects. The next Hugo
+candidate in draw order that built, layer5io/docs (rank 1378), is taken. A site that has
+pages but that sitemend cannot audit still counts as built, and is a tool failure
+(Addendum 1).
+
+Decided by (B): SurendharVr. Date: 2026-10-18.

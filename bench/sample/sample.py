@@ -344,21 +344,30 @@ def cmd_draw(args):
     return 0
 
 
+def built(b):
+    """Whether a build-check row counts as built (rule 6). A build whose output holds no
+    HTML pages counts as a missing output folder (Addendum 7); sitemend failing on a real
+    site still counts as built, and is a tool failure (Addendum 1)."""
+    if b["status"] == "ok":
+        return True
+    return b["status"] == "audit_failed" and "crawled 0 pages" not in (b.get("error") or "")
+
+
 def cmd_select(args):
     with open(os.path.join(HERE, "candidates.json"), encoding="utf-8") as fh:
         cands = json.load(fh)
-    built = {}
+    checked = {}
     for p in args.builds:
         with open(p, encoding="utf-8", newline="") as fh:
             for b in csv.DictReader(fh):
-                built[b["repo"]] = b["status"] in ("ok", "audit_failed")   # it built
+                checked[b["repo"]] = ("built" if built(b) else "no pages" if b["status"] == "audit_failed"
+                                      else "build failed")
     repos, rows = [], []
     for stack, _, _, _ in STACKS:
         mine = sorted((c for c in cands if c["stack"] == stack), key=lambda c: c["rank"])
         taken = 0
         for c in mine:
-            status = ("not checked" if c["repo"] not in built else
-                      "built" if built[c["repo"]] else "build failed")
+            status = checked.get(c["repo"], "not checked")
             if taken < TAKE and status == "built":
                 taken += 1
                 status = "taken"
