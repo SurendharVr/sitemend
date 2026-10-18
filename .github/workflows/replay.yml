@@ -15,6 +15,9 @@ on:
       only:
         description: Comma-separated owner/name list (empty means every repository)
         default: ""
+      config:
+        description: Repository list. bench/sample/candidates.json or bench/sweep/candidates.json (commits 0) build-checks each repository once.
+        default: bench/replay/repos.json
 
 # Other projects' build scripts run here, so the token can only read this repository.
 permissions:
@@ -33,8 +36,9 @@ jobs:
         env:
           PILOT: ${{ inputs.pilot }}
           ONLY: ${{ inputs.only }}
+          CONFIG: ${{ inputs.config }}
         run: |
-          args=(--list)
+          args=(--list --config "$CONFIG")
           if [ "$PILOT" = "true" ]; then args+=(--pilot); fi
           if [ -n "$ONLY" ]; then args+=(--only "$ONLY"); fi
           echo "repos=$(python3 bench/replay/replay.py "${args[@]}")" >> "$GITHUB_OUTPUT"
@@ -69,8 +73,9 @@ jobs:
           REPO: ${{ matrix.repo }}
           SLUG: ${{ matrix.slug }}
           PILOT: ${{ inputs.pilot }}
+          CONFIG: ${{ inputs.config }}
         run: |
-          args=(--only "$REPO" --results "bench/replay/results-$SLUG.csv")
+          args=(--only "$REPO" --config "$CONFIG" --results "bench/replay/results-$SLUG.csv")
           if [ "$PILOT" = "true" ]; then args+=(--pilot); fi
           python bench/replay/replay.py "${args[@]}"
       - name: Upload results and audits
