@@ -3705,7 +3705,8 @@ class TestSampling(unittest.TestCase):
         self.assertEqual((out, node), ("site/build", "22"))
         (cmd, _, node), _ = self._rule({"pnpm-lock.yaml": "9.0"},
                                        root_pkg={"packageManager": "pnpm@10.1.0", "engines": {"node": ">=20"}})
-        self.assertEqual((cmd, node), ("pnpm install --frozen-lockfile && pnpm run build", "20"))
+        # Addendum 6: an engines floor (">=20") is not the Node version used.
+        self.assertEqual((cmd, node), ("pnpm install --frozen-lockfile && pnpm run build", "24"))
 
     def test_build_rule_for_yarn_and_npm(self):
         self.assertTrue(self._rule({"yarn.lock": ""})[0][0].startswith("corepack yarn@1.22.22 install --frozen-lockfile"))
@@ -3716,6 +3717,13 @@ class TestSampling(unittest.TestCase):
                                        root_pkg={"scripts": {"build": "turbo build"}}, nvmrc="lts/*")
         self.assertEqual(cmd, "npm ci && ((cd docs && npm run build) || (npm run build && (cd docs && npm run build)))")
         self.assertEqual(node, "24")
+
+    def test_an_output_with_no_pages_is_not_built(self):
+        """Addendum 7: first10forward/f10f-spa built, but its output held no HTML pages."""
+        self.assertTrue(self.S.built({"status": "ok", "error": ""}))
+        self.assertTrue(self.S.built({"status": "audit_failed", "error": "ValueError: Invalid IPv6 URL"}))
+        self.assertFalse(self.S.built({"status": "audit_failed", "error": "ERROR: crawled 0 pages from /x/public"}))
+        self.assertFalse(self.S.built({"status": "build_failed", "error": "exit 1"}))
 
     def test_build_rule_refuses_what_it_cannot_build_mechanically(self):
         self.assertIn("no lockfile", self._rule({})[1])

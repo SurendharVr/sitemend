@@ -363,3 +363,47 @@ logged as issues; while 1.7.0 is frozen nothing is fixed, unless B lifts the fre
 further addendum. Its report is published as an unregistered check, apart from Task 8's.
 
 Approved by (B): SurendharVr. Date: 2026-10-18.
+
+## Addendum 6: the Node version rule (2026-10-18, before any measurement on the new sample)
+
+The first build check of Addendum 5's 40 candidates (GitHub Actions run 39143564805) showed
+that rule 5's Node choice failed builds for an environment reason, not because of the
+commit. Four of the six Docusaurus failures (Juniors017/docux-blog, ProBotOrg/docs,
+YouniQiao/developer_hos, AgrDataSci/documentation) stopped with "You are using Node.js
+v18, Requirement: Node.js >=20": the rule took the minimum from `engines.node` (`>=18`),
+a floor these projects no longer meet and their own deploys do not use. Left in place, the
+rule would bias the sample against sites with a stale `engines` floor.
+
+Decided by B before any replay or seeded data exists on the new sample:
+
+- Rule 5's Node line becomes: the `.nvmrc` or `.node-version` major, else 24.
+  `engines.node` is not used.
+- The draw is regenerated from the saved frame and the cached API answers: the same order
+  and the same eligibility outcomes, with only `node_version` (and the commands, which do
+  not depend on it) recomputed.
+- The build check is re-run on all 40 candidates under the corrected rule, so the rule
+  applies to every candidate alike. The first check is kept on record as superseded.
+- Where a stack still has fewer than 3 that build, rule 6 continues as written: the next
+  candidates in draw order are checked until 3 build.
+- Hugo is unchanged. The runner has no Hugo binary, so a Hugo site whose `build` script
+  calls `hugo` fails its check, as Addendum 5's limitations say (4 of the 6 Hugo failures
+  in the first check).
+
+Decided by (B): SurendharVr. Date: 2026-10-18.
+
+## Addendum 7: an output with no pages (2026-10-18, before any measurement on the new sample)
+
+In the build check, first10forward/f10f-spa (Hugo, draw rank 1371) built, but its output
+folder (`public/`) held no HTML pages, so sitemend audited nothing ("crawled 0 pages").
+Rule 6 skips a candidate whose output folder is missing; it did not say what to do with
+one that exists but is empty. Left as taken, every one of its replay commits would be a
+tool failure and Hugo would rest on two sites.
+
+Decided by B before any replay or seeded data exists on the new sample: a build whose
+output holds no HTML pages counts as a missing output folder, so the candidate is
+skipped. Applied to every candidate; f10f-spa is the only one it affects. The next Hugo
+candidate in draw order that built, layer5io/docs (rank 1378), is taken. A site that has
+pages but that sitemend cannot audit still counts as built, and is a tool failure
+(Addendum 1).
+
+Decided by (B): SurendharVr. Date: 2026-10-18.

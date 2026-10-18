@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+- **The replay sample, drawn by Addendum 5.** From a code-search frame saved on
+  2026-10-18 (each stack at GitHub's 1,000-result cap), the seed-20261017 draw looked at
+  2,528 repositories and build-checked 54 candidates at their cutoff commits on Ubuntu. The
+  first 3 per stack that built are `bench/replay/repos.json`: Juniors017/docux-blog,
+  DevAdmin-Riu/boss-dashboard-guide, jhipster/jhipster.github.io (Docusaurus);
+  dergigi/learn-fips, mj3622/mj3622.github.io, GoWorkshopConference/2025 (Astro);
+  taoli-tools/taoli-tools-docs, vuejs-translations/docs-zh-cn, fishxcode/fishxcode
+  (VitePress); benbjohnson/litestream.io, layer5io/exoscale-academy, layer5io/docs (Hugo);
+  rgcsekaraa/brows3, CertisBio-RC/certis_agroute_app, TeoConference/TEOConf-FE (Next.js).
+  Two rules were corrected along the way, each in a dated addendum decided by B before any
+  measurement: Node from `.nvmrc` or 24, not the `engines` floor (Addendum 6, after it
+  failed four Docusaurus builds), and an output with no HTML pages counts as missing
+  (Addendum 7). `draw.csv` and `selection.csv` record every repository's outcome.
+  No behaviour changed.
 - **A reproducible sample for the benchmark (Addendum 5, signed by SurendharVr).** The replay
   repositories were Claude's picks from memory; they are replaced by a procedure anyone can
   rerun: a saved GitHub code-search frame per stack, a shuffle with seed 20261017, recorded

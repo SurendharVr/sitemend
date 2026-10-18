@@ -175,7 +175,8 @@ def build_rule(stack, d, root_files, root_pkg, yarnrc, site_pkg, cfg_text, nvmrc
     build = in_d
     if d and ((root_pkg or {}).get("scripts") or {}).get("build"):
         build = "({0} || ({1} run build && {0}))".format(in_d, pm)
-    node = node_major(nvmrc) or node_major(((root_pkg or {}).get("engines") or {}).get("node")) or "24"
+    # Addendum 6: not engines.node, whose minimum is often a floor the project left behind.
+    node = node_major(nvmrc) or "24"
     out = "/".join(p for p in (d, out_dir) if p)
     return (install + " && " + build, out, node), None
 
@@ -277,10 +278,18 @@ def cmd_frame(args):
         items = []
         for q in queries:
             for page in range(1, 11):
-                r = subprocess.run(["gh", "api", "-X", "GET", "search/code", "-f", "q=" + q,
-                                    "-f", "per_page=100", "-f", "page={0}".format(page)],
-                                   capture_output=True, text=True, encoding="utf-8")
-                got = json.loads(r.stdout).get("items", []) if r.returncode == 0 else []
+                # A failed page must stop the frame, never shorten it: it is taken once.
+                for attempt in range(6):
+                    r = subprocess.run(["gh", "api", "-X", "GET", "search/code", "-f", "q=" + q,
+                                        "-f", "per_page=100", "-f", "page={0}".format(page)],
+                                       capture_output=True, text=True, encoding="utf-8")
+                    if r.returncode == 0:
+                        break
+                    time.sleep(60)
+                else:
+                    sys.exit("search failed for {0!r} page {1}; no frame written for {2}:\n{3}".format(
+                        q, page, stack, r.stderr[-500:]))
+                got = json.loads(r.stdout).get("items", [])
                 items += [{"repo": i["repository"]["full_name"], "path": i["path"], "query": q} for i in got]
                 time.sleep(7)       # code search allows 10 requests a minute
                 if len(got) < 100:
@@ -335,21 +344,30 @@ def cmd_draw(args):
     return 0
 
 
+def built(b):
+    """Whether a build-check row counts as built (rule 6). A build whose output holds no
+    HTML pages counts as a missing output folder (Addendum 7); sitemend failing on a real
+    site still counts as built, and is a tool failure (Addendum 1)."""
+    if b["status"] == "ok":
+        return True
+    return b["status"] == "audit_failed" and "crawled 0 pages" not in (b.get("error") or "")
+
+
 def cmd_select(args):
     with open(os.path.join(HERE, "candidates.json"), encoding="utf-8") as fh:
         cands = json.load(fh)
-    built = {}
+    checked = {}
     for p in args.builds:
         with open(p, encoding="utf-8", newline="") as fh:
             for b in csv.DictReader(fh):
-                built[b["repo"]] = b["status"] in ("ok", "audit_failed")   # it built
+                checked[b["repo"]] = ("built" if built(b) else "no pages" if b["status"] == "audit_failed"
+                                      else "build failed")
     repos, rows = [], []
     for stack, _, _, _ in STACKS:
         mine = sorted((c for c in cands if c["stack"] == stack), key=lambda c: c["rank"])
         taken = 0
         for c in mine:
-            status = ("not checked" if c["repo"] not in built else
-                      "built" if built[c["repo"]] else "build failed")
+            status = checked.get(c["repo"], "not checked")
             if taken < TAKE and status == "built":
                 taken += 1
                 status = "taken"
