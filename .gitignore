@@ -28,6 +28,7 @@ bench/replay/out/
 bench/seeded/work/
 bench/seeded/out/
 bench/sample/cache/
+bench/sweep/work/
 
 # Editors / OS
 .DS_Store

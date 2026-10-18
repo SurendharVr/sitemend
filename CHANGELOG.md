@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- **Seeded recall and the robustness sweep on the Addendum 5 sample.** Seeded recall on the
+  15 (`bench/seeded/addendum-5/`): 73 of 75 critical and high mutations caught (97.3%),
+  controls 15 of 15; the rating mutation, reported apart, 10 of 13. The sweep
+  (`bench/sweep/`, not pre-registered): 91 repositories drawn after the sample, 37 built,
+  sitemend crashed on none, one had no HTML pages; 9 sites flagged, most of them sites
+  served from a base path, whose links and canonicals a folder audit reads as broken. The
+  benchmark workflows now upload only each job's own result files: the seeded run's
+  artifacts had carried the old sample's committed results too. `bench/sweep/report.py`
+  reads the page count from `report-data.json` (an antivirus quarantined the `crawl.json`
+  of a SQL-injection knowledge base) and labels an output with no pages apart from a crash.
+  No behaviour changed.
 - **The replay sample, drawn by Addendum 5.** From a code-search frame saved on
   2026-10-18 (each stack at GitHub's 1,000-result cap), the seed-20261017 draw looked at
   2,528 repositories and build-checked 54 candidates at their cutoff commits on Ubuntu. The
