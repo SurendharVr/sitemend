@@ -277,10 +277,18 @@ def cmd_frame(args):
         items = []
         for q in queries:
             for page in range(1, 11):
-                r = subprocess.run(["gh", "api", "-X", "GET", "search/code", "-f", "q=" + q,
-                                    "-f", "per_page=100", "-f", "page={0}".format(page)],
-                                   capture_output=True, text=True, encoding="utf-8")
-                got = json.loads(r.stdout).get("items", []) if r.returncode == 0 else []
+                # A failed page must stop the frame, never shorten it: it is taken once.
+                for attempt in range(6):
+                    r = subprocess.run(["gh", "api", "-X", "GET", "search/code", "-f", "q=" + q,
+                                        "-f", "per_page=100", "-f", "page={0}".format(page)],
+                                       capture_output=True, text=True, encoding="utf-8")
+                    if r.returncode == 0:
+                        break
+                    time.sleep(60)
+                else:
+                    sys.exit("search failed for {0!r} page {1}; no frame written for {2}:\n{3}".format(
+                        q, page, stack, r.stderr[-500:]))
+                got = json.loads(r.stdout).get("items", [])
                 items += [{"repo": i["repository"]["full_name"], "path": i["path"], "query": q} for i in got]
                 time.sleep(7)       # code search allows 10 requests a minute
                 if len(got) < 100:
