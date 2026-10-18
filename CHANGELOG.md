@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- **A reproducible sample for the benchmark (Addendum 5, awaiting sign-off).** The replay
+- **A reproducible sample for the benchmark (Addendum 5, signed by SurendharVr).** The replay
   repositories were Claude's picks from memory; they are replaced by a procedure anyone can
   rerun: a saved GitHub code-search frame per stack, a shuffle with seed 20261017, recorded
   eligibility checks, a mechanical build-command rule and a build check at the cutoff
