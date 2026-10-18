@@ -353,4 +353,13 @@ search can find, not of all sites; it is mostly docs and project sites, because 
 what is public; and the build rule is mechanical, so a project whose real deploy needs
 more than its own `build` script is skipped rather than fixed.
 
+**Robustness sweep (not pre-registered).** Separately from the measurement, the next 20
+eligible repositories per stack in the same draw order, after the 15 taken for the sample,
+are built once at their cutoff commit and audited once (100 repositories, no history and
+no comparisons). It looks for crashes, extreme runtimes and findings that look like false
+positives, so the next #51 is found before users find it. Its results are not part of any
+threshold or decision rule, and its repositories never overlap the sample. What it finds is
+logged as issues; while 1.7.0 is frozen nothing is fixed, unless B lifts the freeze in a
+further addendum. Its report is published as an unregistered check, apart from Task 8's.
+
 Approved by (B): ____ Date: ____
