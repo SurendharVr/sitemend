@@ -3705,7 +3705,8 @@ class TestSampling(unittest.TestCase):
         self.assertEqual((out, node), ("site/build", "22"))
         (cmd, _, node), _ = self._rule({"pnpm-lock.yaml": "9.0"},
                                        root_pkg={"packageManager": "pnpm@10.1.0", "engines": {"node": ">=20"}})
-        self.assertEqual((cmd, node), ("pnpm install --frozen-lockfile && pnpm run build", "20"))
+        # Addendum 6: an engines floor (">=20") is not the Node version used.
+        self.assertEqual((cmd, node), ("pnpm install --frozen-lockfile && pnpm run build", "24"))
 
     def test_build_rule_for_yarn_and_npm(self):
         self.assertTrue(self._rule({"yarn.lock": ""})[0][0].startswith("corepack yarn@1.22.22 install --frozen-lockfile"))

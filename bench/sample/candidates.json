@@ -7,7 +7,7 @@
     "commits": 0,
     "build_command": "npm ci && npm run build",
     "site_dir": "build",
-    "node_version": "18"
+    "node_version": "24"
   },
   {
     "repo": "DevAdmin-Riu/boss-dashboard-guide",
@@ -17,7 +17,7 @@
     "commits": 0,
     "build_command": "npm ci && npm run build",
     "site_dir": "build",
-    "node_version": "20"
+    "node_version": "24"
   },
   {
     "repo": "YouniQiao/developer_hos",
@@ -27,7 +27,7 @@
     "commits": 0,
     "build_command": "npm ci && npm run build",
     "site_dir": "build",
-    "node_version": "18"
+    "node_version": "24"
   },
   {
     "repo": "AgrDataSci/documentation",
@@ -37,7 +37,7 @@
     "commits": 0,
     "build_command": "npm ci && npm run build",
     "site_dir": "build",
-    "node_version": "18"
+    "node_version": "24"
   },
   {
     "repo": "jhipster/jhipster.github.io",
@@ -47,7 +47,7 @@
     "commits": 0,
     "build_command": "npm ci && npm run build",
     "site_dir": "build",
-    "node_version": "20"
+    "node_version": "24"
   },
   {
     "repo": "finos/architecture-as-code",
@@ -67,7 +67,7 @@
     "commits": 0,
     "build_command": "npm ci && npm run build",
     "site_dir": "build",
-    "node_version": "18"
+    "node_version": "24"
   },
   {
     "repo": "ctu-mrs/ctu-mrs.github.io",
@@ -77,7 +77,7 @@
     "commits": 0,
     "build_command": "corepack yarn@1.22.22 install --frozen-lockfile && corepack yarn@1.22.22 run build",
     "site_dir": "build",
-    "node_version": "18"
+    "node_version": "24"
   },
   {
     "repo": "LilTrublMakr/Diadem",
@@ -87,7 +87,7 @@
     "commits": 0,
     "build_command": "pnpm install --frozen-lockfile && ((cd docs && pnpm run build) || (pnpm run build && (cd docs && pnpm run build)))",
     "site_dir": "docs/dist",
-    "node_version": "22"
+    "node_version": "24"
   },
   {
     "repo": "dergigi/learn-fips",
@@ -97,7 +97,7 @@
     "commits": 0,
     "build_command": "npm ci && npm run build",
     "site_dir": "dist",
-    "node_version": "22"
+    "node_version": "24"
   },
   {
     "repo": "sadikuernest00-prog/astro-platform-starter-b9185",
@@ -117,7 +117,7 @@
     "commits": 0,
     "build_command": "pnpm install --frozen-lockfile && pnpm run build",
     "site_dir": "dist",
-    "node_version": "22"
+    "node_version": "24"
   },
   {
     "repo": "GoWorkshopConference/2025",
@@ -147,7 +147,7 @@
     "commits": 0,
     "build_command": "npm ci && ((cd site && npm run build) || (npm run build && (cd site && npm run build)))",
     "site_dir": "site/dist",
-    "node_version": "22"
+    "node_version": "24"
   },
   {
     "repo": "philipschm1tt/rhode-medizin",
@@ -307,7 +307,7 @@
     "commits": 0,
     "build_command": "npm ci && npm run build",
     "site_dir": "public",
-    "node_version": "22"
+    "node_version": "24"
   },
   {
     "repo": "himanjal/basic_hugo",
@@ -317,7 +317,7 @@
     "commits": 0,
     "build_command": "npm ci && npm run build",
     "site_dir": "public",
-    "node_version": "18"
+    "node_version": "24"
   },
   {
     "repo": "mehulshekhada96/shreeji-jwellery",
@@ -397,6 +397,6 @@
     "commits": 0,
     "build_command": "npm ci && npm run build",
     "site_dir": "out",
-    "node_version": "20"
+    "node_version": "24"
   }
 ]

@@ -175,7 +175,8 @@ def build_rule(stack, d, root_files, root_pkg, yarnrc, site_pkg, cfg_text, nvmrc
     build = in_d
     if d and ((root_pkg or {}).get("scripts") or {}).get("build"):
         build = "({0} || ({1} run build && {0}))".format(in_d, pm)
-    node = node_major(nvmrc) or node_major(((root_pkg or {}).get("engines") or {}).get("node")) or "24"
+    # Addendum 6: not engines.node, whose minimum is often a floor the project left behind.
+    node = node_major(nvmrc) or "24"
     out = "/".join(p for p in (d, out_dir) if p)
     return (install + " && " + build, out, node), None
 

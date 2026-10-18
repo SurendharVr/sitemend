@@ -4,7 +4,7 @@ docusaurus,2,mindfiredigital/document-editor,ineligible,61 commits in the window
 docusaurus,3,RichardZhu123/Meadows2,ineligible,0 commits in the window (needs 75),,,,
 docusaurus,4,Stream-Computing/stc-docuhub,ineligible,4 commits in the window (needs 75),,,,
 docusaurus,5,iselt/PentestNotes,ineligible,15 commits in the window (needs 75),,,,
-docusaurus,6,Juniors017/docux-blog,candidate,,c4a3889620381c56df3b466655fa7926540b6a78,build,npm ci && npm run build,18
+docusaurus,6,Juniors017/docux-blog,candidate,,c4a3889620381c56df3b466655fa7926540b6a78,build,npm ci && npm run build,24
 docusaurus,7,poteto0/go-nba-sdk,ineligible,69 commits in the window (needs 75),,,,
 docusaurus,8,DevomB/Poker-Calculations-Website,ineligible,44 commits in the window (needs 75),,,,
 docusaurus,9,Daniyal-Sarwar/Physical-AI-Humanoid-Robotics-Textbook,ineligible,3 commits in the window (needs 75),,,,
@@ -29,17 +29,17 @@ docusaurus,27,karan0207/TechDocs,ineligible,1 commits in the window (needs 75),,
 docusaurus,28,benson1029/go-slang,ineligible,0 commits in the window (needs 75),,,,
 docusaurus,29,Quantus-Network/docs,ineligible,55 commits in the window (needs 75),,,,
 docusaurus,30,Abdullah-Ikhlaq/Humanoid-AI-Robotics-Book,ineligible,5 commits in the window (needs 75),,,,
-docusaurus,31,DevAdmin-Riu/boss-dashboard-guide,candidate,,2acf9af56eb939e27e74558b070e6df130647741,build,npm ci && npm run build,20
+docusaurus,31,DevAdmin-Riu/boss-dashboard-guide,candidate,,2acf9af56eb939e27e74558b070e6df130647741,build,npm ci && npm run build,24
 docusaurus,32,sinoui/core,ineligible,0 commits in the window (needs 75),,,,
-docusaurus,33,YouniQiao/developer_hos,candidate,,e74acf415e5f2ab01e443c83c6affb1c7a14c300,build,npm ci && npm run build,18
+docusaurus,33,YouniQiao/developer_hos,candidate,,e74acf415e5f2ab01e443c83c6affb1c7a14c300,build,npm ci && npm run build,24
 docusaurus,34,mbalcerzak/the-warsaw-project,ineligible,0 commits in the window (needs 75),,,,
 docusaurus,35,phantom9999/fbthrift_reading,ineligible,0 commits in the window (needs 75),,,,
 docusaurus,36,react-native-google-signin/docs,ineligible,55 commits in the window (needs 75),,,,
 docusaurus,37,codee-com/open-catalog,ineligible,71 commits in the window (needs 75),,,,
 docusaurus,38,tchapo9/pfsense-docs,ineligible,16 commits in the window (needs 75),,,,
 docusaurus,39,jimdrury/storybook-addon-badges-docs,ineligible,0 commits in the window (needs 75),,,,
-docusaurus,40,AgrDataSci/documentation,candidate,,cce53be9ac7d3bb2173b9c323137c76e2c37062e,build,npm ci && npm run build,18
-docusaurus,41,jhipster/jhipster.github.io,candidate,,db2491383eb64c3c10bc5e2bf5486e0577de4264,build,npm ci && npm run build,20
+docusaurus,40,AgrDataSci/documentation,candidate,,cce53be9ac7d3bb2173b9c323137c76e2c37062e,build,npm ci && npm run build,24
+docusaurus,41,jhipster/jhipster.github.io,candidate,,db2491383eb64c3c10bc5e2bf5486e0577de4264,build,npm ci && npm run build,24
 docusaurus,42,minh352623/documents,ineligible,50 commits in the window (needs 75),,,,
 docusaurus,43,jyfan-n/excalidraw,ineligible,0 commits in the window (needs 75),,,,
 docusaurus,44,finos/architecture-as-code,candidate,,1e031a777e83106b2e72d8b8253695c8badb0e0e,shared/src/docify/template-bundles/docusaurus/build,npm ci && ((cd shared/src/docify/template-bundles/docusaurus && npm run build) || (npm run build && (cd shared/src/docify/template-bundles/docusaurus && npm run build))),26
@@ -54,17 +54,17 @@ docusaurus,52,abdulwahidchohan/Hackathon-Book-Documnetation,ineligible,9 commits
 docusaurus,53,macosui/macosui.dev,ineligible,0 commits in the window (needs 75),,,,
 docusaurus,54,Productdb/docs,ineligible,0 commits in the window (needs 75),,,,
 docusaurus,55,iijlab/wai-middleware-validation,ineligible,0 commits in the window (needs 75),,,,
-docusaurus,56,ProBotOrg/docs,candidate,,4a84fcff0b67599af74742864ae7f84c6bccc5ea,build,npm ci && npm run build,18
+docusaurus,56,ProBotOrg/docs,candidate,,4a84fcff0b67599af74742864ae7f84c6bccc5ea,build,npm ci && npm run build,24
 docusaurus,57,magma/magma-documentation,ineligible,32 commits in the window (needs 75),,,,
 docusaurus,58,Lu15R/Documentacion_Doc,ineligible,0 commits in the window (needs 75),,,,
 docusaurus,59,AprilNEA/note,ineligible,0 commits in the window (needs 75),,,,
 docusaurus,60,Rahiche/easya-react-docs,ineligible,0 commits in the window (needs 75),,,,
 docusaurus,61,siberbot88/personal-academic-manager,ineligible,17 commits in the window (needs 75),,,,
 docusaurus,62,justincrosbie/passkeyme-docs,ineligible,0 commits in the window (needs 75),,,,
-docusaurus,63,ctu-mrs/ctu-mrs.github.io,candidate,,1273ea04deffe2491c86b1442a94273ee36a814a,build,corepack yarn@1.22.22 install --frozen-lockfile && corepack yarn@1.22.22 run build,18
+docusaurus,63,ctu-mrs/ctu-mrs.github.io,candidate,,1273ea04deffe2491c86b1442a94273ee36a814a,build,corepack yarn@1.22.22 install --frozen-lockfile && corepack yarn@1.22.22 run build,24
 astro,1,santiment/santiment.net,ineligible,70 commits in the window (needs 75),,,,
 astro,2,bandantonio/bandantonio.github.io,ineligible,2 commits in the window (needs 75),,,,
-astro,3,LilTrublMakr/Diadem,candidate,,1221c12b576b8a45682c07ebab405187d24b8300,docs/dist,pnpm install --frozen-lockfile && ((cd docs && pnpm run build) || (pnpm run build && (cd docs && pnpm run build))),22
+astro,3,LilTrublMakr/Diadem,candidate,,1221c12b576b8a45682c07ebab405187d24b8300,docs/dist,pnpm install --frozen-lockfile && ((cd docs && pnpm run build) || (pnpm run build && (cd docs && pnpm run build))),24
 astro,4,kalyanchilamkuri/File-Compressor,ineligible,39 commits in the window (needs 75),,,,
 astro,5,HarukaDev31/astro_landing_probusiness,ineligible,22 commits in the window (needs 75),,,,
 astro,6,UXCorpRangel/portafolio-ana,ineligible,7 commits in the window (needs 75),,,,
@@ -87,7 +87,7 @@ astro,22,AddisonReyes/teamlogistics,ineligible,20 commits in the window (needs 7
 astro,23,johnajacob/astro-coolify,ineligible,0 commits in the window (needs 75),,,,
 astro,24,johnhkchen/ezstack,ineligible,0 commits in the window (needs 75),,,,
 astro,25,okikio/skf-examination-platform,ineligible,0 commits in the window (needs 75),,,,
-astro,26,dergigi/learn-fips,candidate,,74260ba92b108e5e84b73cde07b4842f5ec04228,dist,npm ci && npm run build,22
+astro,26,dergigi/learn-fips,candidate,,74260ba92b108e5e84b73cde07b4842f5ec04228,dist,npm ci && npm run build,24
 astro,27,astro-sanctuary/sanctuary,ineligible,0 commits in the window (needs 75),,,,
 astro,28,ShawnGeorge03/cloud-icons,ineligible,0 commits in the window (needs 75),,,,
 astro,29,vdgame/cms-1,ineligible,0 commits in the window (needs 75),,,,
@@ -133,7 +133,7 @@ astro,68,Moisesdavid2109/Cimientos-del-sabor,ineligible,3 commits in the window 
 astro,69,mxn2020/overstay,ineligible,48 commits in the window (needs 75),,,,
 astro,70,TheVisitor-coding/matlo_fleurs,ineligible,10 commits in the window (needs 75),,,,
 astro,71,indiana-university/rivet-icons,ineligible,0 commits in the window (needs 75),,,,
-astro,72,mj3622/mj3622.github.io,candidate,,79f196847d649bb0dd085914c7aa568bf0424797,dist,pnpm install --frozen-lockfile && pnpm run build,22
+astro,72,mj3622/mj3622.github.io,candidate,,79f196847d649bb0dd085914c7aa568bf0424797,dist,pnpm install --frozen-lockfile && pnpm run build,24
 astro,73,mdsreq-fga-unb/REQ-2025.2-T01-Softex,ineligible,7 commits in the window (needs 75),,,,
 astro,74,MezaFox/SevillaRemodelingLLC,ineligible,0 commits in the window (needs 75),,,,
 astro,75,PoliclinicoLaTrinidad/Policlinico-La-Trinidad,ineligible,0 commits in the window (needs 75),,,,
@@ -177,7 +177,7 @@ astro,112,milinddethe15/milinddethe15.github.io,ineligible,72 commits in the win
 astro,113,sheldonkwok/wclogs,ineligible,11 commits in the window (needs 75),,,,
 astro,114,zeikar/repozine,ineligible,64 commits in the window (needs 75),,,,
 astro,115,Callm3thebreeze/klia-landing,ineligible,0 commits in the window (needs 75),,,,
-astro,116,nexus-substrate/repo-health-report,candidate,,971cf9eaa9e765234b27bf76111840f73c5c585d,site/dist,npm ci && ((cd site && npm run build) || (npm run build && (cd site && npm run build))),22
+astro,116,nexus-substrate/repo-health-report,candidate,,971cf9eaa9e765234b27bf76111840f73c5c585d,site/dist,npm ci && ((cd site && npm run build) || (npm run build && (cd site && npm run build))),24
 astro,117,philipschm1tt/rhode-medizin,candidate,,80b75b2f7d969ae2123df5a56e4bd95446e23772,dist,corepack pnpm@9.15.9 install --frozen-lockfile && corepack pnpm@9.15.9 run build,24
 vitepress,1,snowowowo/snowowowo,ineligible,0 commits in the window (needs 75),,,,
 vitepress,2,bgever/blog,ineligible,39 commits in the window (needs 75),,,,
@@ -1459,7 +1459,7 @@ hugo,1142,MonthyCurious/ToDo-CLI,ineligible,0 commits in the window (needs 75),,
 hugo,1143,nirpendra83/kubernetes,ineligible,0 commits in the window (needs 75),,,,
 hugo,1144,criticalfault/bio-site,ineligible,0 commits in the window (needs 75),,,,
 hugo,1145,WuSphere/WuSphere.github.io,ineligible,2 commits in the window (needs 75),,,,
-hugo,1146,Ta1al/ta1al.github.io,candidate,,a7770995397fde2e0f5a09464c0ad2484e3788ed,public,npm ci && npm run build,22
+hugo,1146,Ta1al/ta1al.github.io,candidate,,a7770995397fde2e0f5a09464c0ad2484e3788ed,public,npm ci && npm run build,24
 hugo,1147,DanteZulli/dantezulli.ar,ineligible,site folder has no package.json build script,363922dd7c67e0d354a4b080c61d9e924cc02a7c,,,
 hugo,1148,kjhaber/kjhaber.github.io,ineligible,3 commits in the window (needs 75),,,,
 hugo,1149,gvonbergen/digitalwaehrung.ch,ineligible,42 commits in the window (needs 75),,,,
@@ -1479,7 +1479,7 @@ hugo,1162,NeuroAI-PNU/neuroailab.com,ineligible,28 commits in the window (needs 
 hugo,1163,Rabbit-House-Chino/Rabbit-House-Chino.github.io,ineligible,0 commits in the window (needs 75),,,,
 hugo,1164,chrispyme/chrispy.me,ineligible,3 commits in the window (needs 75),,,,
 hugo,1165,eluo7/eluo7.github.io,ineligible,0 commits in the window (needs 75),,,,
-hugo,1166,himanjal/basic_hugo,candidate,,2e0d4bec40cc3869087625969fffdeed41d8eb78,public,npm ci && npm run build,18
+hugo,1166,himanjal/basic_hugo,candidate,,2e0d4bec40cc3869087625969fffdeed41d8eb78,public,npm ci && npm run build,24
 nextjs,1,miketypson/privacy_website,ineligible,0 commits in the window (needs 75),,,,
 nextjs,2,sandrarampal/tkorp-part2-front,ineligible,0 commits in the window (needs 75),,,,
 nextjs,3,williskipsjr/Distributed-Spark-Based-Real-Time-Drift-Detection-Self-Healing-ML-System,ineligible,50 commits in the window (needs 75),,,,
@@ -1728,4 +1728,4 @@ nextjs,245,zyadhajaji/saly,ineligible,1 commits in the window (needs 75),,,,
 nextjs,246,HarounMinhas/harounminhas.github.io,candidate,,3317ea9a70266f2f2c4a2e188822567a6ff642ba,Backup/out,npm ci && ((cd Backup && npm run build) || (npm run build && (cd Backup && npm run build))),24
 nextjs,247,Osea263/base_meme,ineligible,0 commits in the window (needs 75),,,,
 nextjs,248,nelwincatalogo/todo-app,ineligible,0 commits in the window (needs 75),,,,
-nextjs,249,BEKO2210/My_Dash,candidate,,f1d243b93ea2b98909f6c7ed6d751e1f93fa4a79,out,npm ci && npm run build,20
+nextjs,249,BEKO2210/My_Dash,candidate,,f1d243b93ea2b98909f6c7ed6d751e1f93fa4a79,out,npm ci && npm run build,24
