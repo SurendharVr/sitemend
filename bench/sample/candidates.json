@@ -80,6 +80,86 @@
     "node_version": "24"
   },
   {
+    "repo": "Institut-fur-Allgemeinmedizin-TUM/virtual-patient-system",
+    "stack": "docusaurus",
+    "rank": 64,
+    "ref_cutoff": "2026-10-01T00:00:00Z",
+    "commits": 0,
+    "build_command": "npm ci && (cd docs && npm run build)",
+    "site_dir": "docs/build",
+    "node_version": "24"
+  },
+  {
+    "repo": "the-codegen-project/cli",
+    "stack": "docusaurus",
+    "rank": 73,
+    "ref_cutoff": "2026-10-01T00:00:00Z",
+    "commits": 0,
+    "build_command": "npm ci && ((cd website && npm run build) || (npm run build && (cd website && npm run build)))",
+    "site_dir": "website/build",
+    "node_version": "24"
+  },
+  {
+    "repo": "sabertaz/notes",
+    "stack": "docusaurus",
+    "rank": 87,
+    "ref_cutoff": "2026-10-01T00:00:00Z",
+    "commits": 0,
+    "build_command": "pnpm install --frozen-lockfile && pnpm run build",
+    "site_dir": "build",
+    "node_version": "24"
+  },
+  {
+    "repo": "Project-Babble/BabbleDocs",
+    "stack": "docusaurus",
+    "rank": 95,
+    "ref_cutoff": "2026-10-01T00:00:00Z",
+    "commits": 0,
+    "build_command": "corepack yarn@1.22.22 install --frozen-lockfile && corepack yarn@1.22.22 run build",
+    "site_dir": "build",
+    "node_version": "24"
+  },
+  {
+    "repo": "trebeljahr/tiao",
+    "stack": "docusaurus",
+    "rank": 100,
+    "ref_cutoff": "2026-10-01T00:00:00Z",
+    "commits": 0,
+    "build_command": "npm ci && ((cd docs-site && npm run build) || (npm run build && (cd docs-site && npm run build)))",
+    "site_dir": "docs-site/build",
+    "node_version": "24"
+  },
+  {
+    "repo": "naver/egjs-flicking",
+    "stack": "docusaurus",
+    "rank": 105,
+    "ref_cutoff": "2026-10-01T00:00:00Z",
+    "commits": 0,
+    "build_command": "corepack pnpm@9.15.9 install --frozen-lockfile && (cd packages/docs && corepack pnpm@9.15.9 run build)",
+    "site_dir": "packages/docs/build",
+    "node_version": "24"
+  },
+  {
+    "repo": "ConductionNL/openregister",
+    "stack": "docusaurus",
+    "rank": 145,
+    "ref_cutoff": "2026-10-01T00:00:00Z",
+    "commits": 0,
+    "build_command": "npm ci && ((cd docs && npm run build) || (npm run build && (cd docs && npm run build)))",
+    "site_dir": "docs/build",
+    "node_version": "22"
+  },
+  {
+    "repo": "oasisprotocol/docs",
+    "stack": "docusaurus",
+    "rank": 147,
+    "ref_cutoff": "2026-10-01T00:00:00Z",
+    "commits": 0,
+    "build_command": "yarn install --frozen-lockfile && yarn run build",
+    "site_dir": "build",
+    "node_version": "24"
+  },
+  {
     "repo": "LilTrublMakr/Diadem",
     "stack": "astro",
     "rank": 3,
@@ -156,6 +236,86 @@
     "ref_cutoff": "2026-10-01T00:00:00Z",
     "commits": 0,
     "build_command": "corepack pnpm@9.15.9 install --frozen-lockfile && corepack pnpm@9.15.9 run build",
+    "site_dir": "dist",
+    "node_version": "24"
+  },
+  {
+    "repo": "loliblogs/Refined",
+    "stack": "astro",
+    "rank": 126,
+    "ref_cutoff": "2026-10-01T00:00:00Z",
+    "commits": 0,
+    "build_command": "pnpm install --frozen-lockfile && pnpm run build",
+    "site_dir": "dist",
+    "node_version": "24"
+  },
+  {
+    "repo": "Vonage-Community/tutorial-interactive_tutorials",
+    "stack": "astro",
+    "rank": 128,
+    "ref_cutoff": "2026-10-01T00:00:00Z",
+    "commits": 0,
+    "build_command": "npm ci && (cd tutorials/video-node-client-observability && npm run build)",
+    "site_dir": "tutorials/video-node-client-observability/dist",
+    "node_version": "24"
+  },
+  {
+    "repo": "the3ash/astro-chiri",
+    "stack": "astro",
+    "rank": 135,
+    "ref_cutoff": "2026-10-01T00:00:00Z",
+    "commits": 0,
+    "build_command": "pnpm install --frozen-lockfile && pnpm run build",
+    "site_dir": "dist",
+    "node_version": "24"
+  },
+  {
+    "repo": "itemx/shinengumi-utawaku",
+    "stack": "astro",
+    "rank": 138,
+    "ref_cutoff": "2026-10-01T00:00:00Z",
+    "commits": 0,
+    "build_command": "npm ci && npm run build",
+    "site_dir": "dist",
+    "node_version": "24"
+  },
+  {
+    "repo": "Die-KoMa/die-koma.org",
+    "stack": "astro",
+    "rank": 139,
+    "ref_cutoff": "2026-10-01T00:00:00Z",
+    "commits": 0,
+    "build_command": "npm ci && npm run build",
+    "site_dir": "dist",
+    "node_version": "24"
+  },
+  {
+    "repo": "cloud-gov/pages-site-gantry",
+    "stack": "astro",
+    "rank": 146,
+    "ref_cutoff": "2026-10-01T00:00:00Z",
+    "commits": 0,
+    "build_command": "npm ci && npm run build",
+    "site_dir": "dist",
+    "node_version": "24"
+  },
+  {
+    "repo": "atfleming/80fcreative",
+    "stack": "astro",
+    "rank": 151,
+    "ref_cutoff": "2026-10-01T00:00:00Z",
+    "commits": 0,
+    "build_command": "npm ci && npm run build",
+    "site_dir": "dist",
+    "node_version": "24"
+  },
+  {
+    "repo": "ojoanalogo/alfon.so",
+    "stack": "astro",
+    "rank": 153,
+    "ref_cutoff": "2026-10-01T00:00:00Z",
+    "commits": 0,
+    "build_command": "pnpm install --frozen-lockfile && pnpm run build",
     "site_dir": "dist",
     "node_version": "24"
   },
@@ -240,6 +400,86 @@
     "node_version": "24"
   },
   {
+    "repo": "AzenAnn/DSA-Mastery",
+    "stack": "vitepress",
+    "rank": 189,
+    "ref_cutoff": "2026-10-01T00:00:00Z",
+    "commits": 0,
+    "build_command": "pnpm install --frozen-lockfile && pnpm run build",
+    "site_dir": ".vitepress/dist",
+    "node_version": "24"
+  },
+  {
+    "repo": "neonpixels-studio/neonpixels",
+    "stack": "vitepress",
+    "rank": 202,
+    "ref_cutoff": "2026-10-01T00:00:00Z",
+    "commits": 0,
+    "build_command": "npm ci && npm run build",
+    "site_dir": ".vitepress/dist",
+    "node_version": "24"
+  },
+  {
+    "repo": "clice-io/docs",
+    "stack": "vitepress",
+    "rank": 206,
+    "ref_cutoff": "2026-10-01T00:00:00Z",
+    "commits": 0,
+    "build_command": "npm ci && npm run build",
+    "site_dir": ".vitepress/dist",
+    "node_version": "24"
+  },
+  {
+    "repo": "CaoMeiYouRen/caomei-auth",
+    "stack": "vitepress",
+    "rank": 237,
+    "ref_cutoff": "2026-10-01T00:00:00Z",
+    "commits": 0,
+    "build_command": "pnpm install --frozen-lockfile && pnpm run build",
+    "site_dir": ".vitepress/dist",
+    "node_version": "24"
+  },
+  {
+    "repo": "Mintimate/DocVitePressOMR",
+    "stack": "vitepress",
+    "rank": 264,
+    "ref_cutoff": "2026-10-01T00:00:00Z",
+    "commits": 0,
+    "build_command": "npm ci && npm run build",
+    "site_dir": ".vitepress/dist",
+    "node_version": "24"
+  },
+  {
+    "repo": "zhcndoc/hono",
+    "stack": "vitepress",
+    "rank": 280,
+    "ref_cutoff": "2026-10-01T00:00:00Z",
+    "commits": 0,
+    "build_command": "pnpm install --frozen-lockfile && pnpm run build",
+    "site_dir": ".vitepress/dist",
+    "node_version": "24"
+  },
+  {
+    "repo": "EOPF-Explorer/landing-page",
+    "stack": "vitepress",
+    "rank": 286,
+    "ref_cutoff": "2026-10-01T00:00:00Z",
+    "commits": 0,
+    "build_command": "npm ci && npm run build",
+    "site_dir": ".vitepress/dist",
+    "node_version": "24"
+  },
+  {
+    "repo": "HolyBearTW/holybear.tw",
+    "stack": "vitepress",
+    "rank": 304,
+    "ref_cutoff": "2026-10-01T00:00:00Z",
+    "commits": 0,
+    "build_command": "yarn install --frozen-lockfile && yarn run build",
+    "site_dir": ".vitepress/dist",
+    "node_version": "24"
+  },
+  {
     "repo": "anchore/oss-docs",
     "stack": "hugo",
     "rank": 181,
@@ -320,6 +560,66 @@
     "node_version": "24"
   },
   {
+    "repo": "Zero-Kq/Pages",
+    "stack": "hugo",
+    "rank": 1192,
+    "ref_cutoff": "2026-10-01T00:00:00Z",
+    "commits": 0,
+    "build_command": "npm ci && npm run build",
+    "site_dir": "public",
+    "node_version": "24"
+  },
+  {
+    "repo": "kode-monki/btc-hugo",
+    "stack": "hugo",
+    "rank": 1258,
+    "ref_cutoff": "2026-10-01T00:00:00Z",
+    "commits": 0,
+    "build_command": "npm ci && npm run build",
+    "site_dir": "public",
+    "node_version": "24"
+  },
+  {
+    "repo": "first10forward/f10f-spa",
+    "stack": "hugo",
+    "rank": 1371,
+    "ref_cutoff": "2026-10-01T00:00:00Z",
+    "commits": 0,
+    "build_command": "npm ci && npm run build",
+    "site_dir": "public",
+    "node_version": "24"
+  },
+  {
+    "repo": "layer5io/docs",
+    "stack": "hugo",
+    "rank": 1378,
+    "ref_cutoff": "2026-10-01T00:00:00Z",
+    "commits": 0,
+    "build_command": "npm ci && npm run build",
+    "site_dir": "public",
+    "node_version": "24"
+  },
+  {
+    "repo": "livingdocsIO/documentation",
+    "stack": "hugo",
+    "rank": 1460,
+    "ref_cutoff": "2026-10-01T00:00:00Z",
+    "commits": 0,
+    "build_command": "npm ci && npm run build",
+    "site_dir": "public",
+    "node_version": "24"
+  },
+  {
+    "repo": "hugo-fixit/FixIt",
+    "stack": "hugo",
+    "rank": 1533,
+    "ref_cutoff": "2026-10-01T00:00:00Z",
+    "commits": 0,
+    "build_command": "pnpm install --frozen-lockfile && pnpm run build",
+    "site_dir": "public",
+    "node_version": "24"
+  },
+  {
     "repo": "mehulshekhada96/shreeji-jwellery",
     "stack": "nextjs",
     "rank": 17,
@@ -396,6 +696,86 @@
     "ref_cutoff": "2026-10-01T00:00:00Z",
     "commits": 0,
     "build_command": "npm ci && npm run build",
+    "site_dir": "out",
+    "node_version": "24"
+  },
+  {
+    "repo": "TeoConference/TEOConf-FE",
+    "stack": "nextjs",
+    "rank": 283,
+    "ref_cutoff": "2026-10-01T00:00:00Z",
+    "commits": 0,
+    "build_command": "corepack pnpm@9.15.9 install --frozen-lockfile && corepack pnpm@9.15.9 run build",
+    "site_dir": "out",
+    "node_version": "24"
+  },
+  {
+    "repo": "Profiletestai/mindcanvas-brain",
+    "stack": "nextjs",
+    "rank": 285,
+    "ref_cutoff": "2026-10-01T00:00:00Z",
+    "commits": 0,
+    "build_command": "corepack pnpm@9.15.9 install --frozen-lockfile && (cd apps/web && corepack pnpm@9.15.9 run build)",
+    "site_dir": "apps/web/out",
+    "node_version": "18"
+  },
+  {
+    "repo": "vibedeckx/vibedeckx",
+    "stack": "nextjs",
+    "rank": 295,
+    "ref_cutoff": "2026-10-01T00:00:00Z",
+    "commits": 0,
+    "build_command": "corepack pnpm@9.15.9 install --frozen-lockfile && ((cd apps/vibedeckx-ui && corepack pnpm@9.15.9 run build) || (corepack pnpm@9.15.9 run build && (cd apps/vibedeckx-ui && corepack pnpm@9.15.9 run build)))",
+    "site_dir": "apps/vibedeckx-ui/out",
+    "node_version": "24"
+  },
+  {
+    "repo": "ss04pp1-dotcom/Bug-Fixertv2",
+    "stack": "nextjs",
+    "rank": 332,
+    "ref_cutoff": "2026-10-01T00:00:00Z",
+    "commits": 0,
+    "build_command": "corepack pnpm@9.15.9 install --frozen-lockfile && ((cd artifacts/admin && corepack pnpm@9.15.9 run build) || (corepack pnpm@9.15.9 run build && (cd artifacts/admin && corepack pnpm@9.15.9 run build)))",
+    "site_dir": "artifacts/admin/out",
+    "node_version": "24"
+  },
+  {
+    "repo": "shreyanshio/BrainyAi",
+    "stack": "nextjs",
+    "rank": 342,
+    "ref_cutoff": "2026-10-01T00:00:00Z",
+    "commits": 0,
+    "build_command": "npm ci && npm run build",
+    "site_dir": "out",
+    "node_version": "24"
+  },
+  {
+    "repo": "MadeByRed/chronic-haven",
+    "stack": "nextjs",
+    "rank": 356,
+    "ref_cutoff": "2026-10-01T00:00:00Z",
+    "commits": 0,
+    "build_command": "npm ci && npm run build",
+    "site_dir": "out",
+    "node_version": "24"
+  },
+  {
+    "repo": "MSOR03/SIPREH",
+    "stack": "nextjs",
+    "rank": 366,
+    "ref_cutoff": "2026-10-01T00:00:00Z",
+    "commits": 0,
+    "build_command": "npm ci && (cd drought-frontend && npm run build)",
+    "site_dir": "drought-frontend/out",
+    "node_version": "24"
+  },
+  {
+    "repo": "karaklefos/vscode-intro",
+    "stack": "nextjs",
+    "rank": 374,
+    "ref_cutoff": "2026-10-01T00:00:00Z",
+    "commits": 0,
+    "build_command": "corepack pnpm@9.15.9 install --frozen-lockfile && corepack pnpm@9.15.9 run build",
     "site_dir": "out",
     "node_version": "24"
   }
