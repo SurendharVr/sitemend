@@ -95,9 +95,14 @@ def summary(results, builds, ledger, sources):
                 pct(v["true_regression"], with_verdict)))
         fps = [r for r in ledger if r["verdict"] == "false_positive"]
         if fps:
-            out += ["", "False positives:", ""] + ["- {0} `{1}` {2} on {3}: {4}".format(
-                r["repo"], r["head_sha"][:10], r["rule_id"], r["url"], r["notes"] or "(no notes)")
-                for r in fps]
+            # Grouped: one systematic misfire can be a thousand rows; every row stays in the ledger.
+            groups = Counter((r["repo"], r["rule_id"], r["notes"] or "(no notes)") for r in fps)
+            commits = defaultdict(set)
+            for r in fps:
+                commits[(r["repo"], r["rule_id"], r["notes"] or "(no notes)")].add(r["head_sha"])
+            out += ["", "False positives (grouped; each row is in the ledger):", ""] + [
+                "- {0} × {1} {2}, in {3} commit(s): {4}".format(n, repo, rule, len(commits[(repo, rule, note)]), note)
+                for (repo, rule, note), n in sorted(groups.items(), key=lambda kv: -kv[1])]
 
     out += ["", "## Tool failures (Addendum 1)", ""]
     failed = [b for b in builds if b["status"] != "ok"]
