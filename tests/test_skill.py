@@ -3762,7 +3762,8 @@ class TestSweepReport(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stderr)
         with open(os.path.join(d, "sweep.md"), encoding="utf-8") as fh:
             md = fh.read()
-        self.assertIn("**3 repositories: 2 built, 1 did not; of those built, sitemend could not audit 1.**", md)
+        self.assertIn("**3 repositories: 2 built, 1 did not; of those built, 0 had no HTML pages and "
+                      "sitemend could not audit 1.**", md)
         self.assertIn("| o/a | slow (700 s); site-wide S1-X (10 of 10 pages) |", md)
         self.assertIn("| o/b | crash | ValueError: Invalid IPv6 URL |", md)
         self.assertNotIn("S3-Y", md)

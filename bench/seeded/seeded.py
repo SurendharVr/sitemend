@@ -6,7 +6,7 @@ own build code), apply one known regression at a time to a copy of the built out
 check that the gate catches it, base against mutated head. An unmutated copy (the control)
 must pass, or the harness itself is producing failures.
 
-  python bench/seeded/seeded.py                 # the first 5 repositories in repos.json
+  python bench/seeded/seeded.py                 # every repository in repos.json
   python bench/seeded/seeded.py --only vuejs/docs
   python bench/seeded/seeded.py --list          # the selection as JSON, for a CI matrix
   python bench/seeded/seeded.py --report --results a.csv b.csv   # merge runs, write recall.md
@@ -35,7 +35,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(os.path.dirname(HERE), "replay"))
 import replay  # noqa: E402
 
-REPOS = 5   # the first 5 in repos.json, decided before any recall data (2026-10-17)
+# Every repository in repos.json: the 15 of Addendum 5 (earlier, the first 5 of the old list).
 # The frozen sitemend's own test for 404/error/thank-you pages (audit.is_utility), set in
 # main(): those are never mutation targets, because the audit rightly treats them apart.
 is_utility = None
@@ -324,7 +324,8 @@ def main(argv=None):
 
     with open(args.config, encoding="utf-8") as fh:
         repos = json.load(fh)
-    repos = [e for e in repos if e["repo"] in set(args.only.split(","))] if args.only else repos[:REPOS]
+    if args.only:
+        repos = [e for e in repos if e["repo"] in set(args.only.split(","))]
     if args.list:
         print(json.dumps([{"repo": e["repo"], "slug": e["repo"].replace("/", "__"),
                            "node_version": str(e.get("node_version", ""))} for e in repos]))

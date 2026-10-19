@@ -65,7 +65,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: seeded-${{ matrix.slug }}
+          # This job's own file only: results committed in the checkout must not ride along.
           path: |
-            bench/seeded/results-*.csv
+            bench/seeded/results-${{ matrix.slug }}.csv
             bench/seeded/out/
           if-no-files-found: warn
