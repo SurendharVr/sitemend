@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **The benchmark report: `docs/benchmark-2026-11-replay.md`.** 600 real commits replayed
+  through the frozen 1.7.0 gate on a reproducible 15-repository sample. Precision failed
+  its pre-registered threshold (76 of 1,442 blocking findings, 5.3%; nearly all false
+  positives come from #69 and #73), while frequency (20 of 517 commits, 3.9%) and seeded
+  recall (73 of 75, 97.3%) met theirs. As pre-registered: outreach stops, the rules are
+  fixed under the stability policy, and each confirmed false positive becomes a test.
 - **The full replay on the Addendum 5 sample.** 15 repositories, 615 builds, 600
   comparisons on sitemend 1.7.0 (GitHub Actions run 39183739377): 517 compared, 34 failed
   the gate, 44 skipped for builds that failed and 39 for audits sitemend did not finish.
