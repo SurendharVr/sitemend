@@ -407,3 +407,17 @@ pages but that sitemend cannot audit still counts as built, and is a tool failur
 (Addendum 1).
 
 Decided by (B): SurendharVr. Date: 2026-10-18.
+
+## Addendum 8: an audit that does not finish (2026-10-19, after the full run, before any verdict)
+
+In the full replay (GitHub Actions run 39183739377), sitemend took about 2.5 hours to audit
+each commit of layer5io/exoscale-academy (issue #71: a quadratic regex in `crawl.py`), so
+the job reached its time limit after 2 of its 41 commits. Its one comparison (f166bb7 →
+1343199) was reconstructed from the uploaded audits with the frozen `verify.py`; it passes.
+
+Decided by B: the 39 commits sitemend did not audit (one stopped mid-audit, 38 never
+reached) are **tool failures** under Addendum 1, the same family as a crash. They count
+toward neither frequency nor precision and are reported per repository with the reason.
+The repository is not re-run, which would take about four days of runner time.
+
+Decided by (B): SurendharVr. Date: 2026-10-19.

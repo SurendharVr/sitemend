@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- **The full replay on the Addendum 5 sample.** 15 repositories, 615 builds, 600
+  comparisons on sitemend 1.7.0 (GitHub Actions run 39183739377): 517 compared, 34 failed
+  the gate, 44 skipped for builds that failed and 39 for audits sitemend did not finish.
+  `bench/ledger.csv` holds the 1,442 blocking findings, all awaiting B's verdicts; most
+  come from two systematic patterns (a base-path site, #69, and percent-encoded non-ASCII
+  URLs). layer5io/exoscale-academy took about 2.5 hours per audit (#71), so its 39
+  unaudited commits are tool failures (Addendum 8). The 1.7.0 pilot's verdicts move to
+  `bench/replay/pilot-1.7.0/ledger.csv`, since that sample was superseded. No behaviour
+  changed.
 - **Seeded recall and the robustness sweep on the Addendum 5 sample.** Seeded recall on the
   15 (`bench/seeded/addendum-5/`): 73 of 75 critical and high mutations caught (97.3%),
   controls 15 of 15; the rating mutation, reported apart, 10 of 13. The sweep
