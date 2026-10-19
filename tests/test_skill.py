@@ -68,7 +68,7 @@ class Fixture:
 
     def crawl(self):
         (pages, assets, robots, sitemap, extras, excluded,
-         skipped, refs, names) = crawl.crawl_fs(self.root)
+         skipped, refs, names, base_path) = crawl.crawl_fs(self.root)
         rb = S.Robots(robots)
         for p in pages:
             allowed, rule = rb.check(p["url"])
@@ -77,7 +77,7 @@ class Fixture:
         sm_urls, _ = S.parse_sitemap(sitemap)
         return {
             "meta": {"source": self.root, "mode": "fs", "page_count": len(pages),
-                     "base_url": None, "excluded_dirs_present": excluded},
+                     "base_url": None, "excluded_dirs_present": excluded, "base_path": base_path},
             "robots": {"found": bool(robots), "sitemaps": rb.sitemaps, "groups": [], "raw": robots},
             "sitemap": {"found": bool(sitemap), "urls": sm_urls, "notes": [],
                         "lastmods": S.parse_sitemap_lastmods(sitemap)},
@@ -842,6 +842,120 @@ class TestSchemaReferences(unittest.TestCase):
     def test_stub_with_no_definition_anywhere_is_still_flagged(self):
         known = schema_check.known_props([{"jsonld": [self.STUB]}])
         self.assertTrue(self._required(known))
+
+
+class TestBasePath(Base):
+    """REGRESSION #69, a permanent test from the replay benchmark: a site served from a
+    base path (a GitHub Pages project site at /<repo>/, Docusaurus baseUrl) writes every
+    link, canonical and sitemap URL under that path. A folder audit treated the build
+    folder as /, so 1,193 findings on one site read as broken, all false positives."""
+
+    HOST = "https://octo-labs.github.io"
+
+    def _site(self, extra_links=""):
+        nav = '<a href="/handbook/intro/">Intro</a> <a href="/handbook/">Home</a> ' + extra_links
+        canon = lambda path: '<link rel="canonical" href="{0}/handbook{1}">'.format(self.HOST, path)
+        self.fx.write("index.html", page_html(
+            title="Handbook Home For The Octo Labs Team",
+            head_extra=canon("/") + '<link rel="stylesheet" href="/handbook/assets/site.css">',
+            body="<h1>Handbook</h1><p>" + nav + "word " * 300 +
+                 '</p><img src="/handbook/img/logo.png" alt="logo" width="1" height="1">'))
+        self.fx.write("intro/index.html", page_html(
+            title="Introduction To The Octo Labs Handbook", head_extra=canon("/intro/"),
+            body="<h1>Intro</h1><p>" + nav + "word " * 300 + "</p>"))
+        self.fx.write("assets/site.css", "body{background:url(../img/logo.png)}")
+        self.fx.write_bytes("img/logo.png", 100)
+        self.fx.write("sitemap.xml",
+                      '<?xml version="1.0"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+                      "<url><loc>{0}/handbook/</loc></url><url><loc>{0}/handbook/intro/</loc></url>"
+                      "</urlset>".format(self.HOST))
+        self.fx.write("robots.txt", "User-agent: *\nAllow: /\nSitemap: {0}/handbook/sitemap.xml\n".format(self.HOST))
+
+    def test_a_base_path_site_reads_as_served(self):
+        self._site()
+        doc = self.fx.crawl()
+        self.assertEqual(doc["meta"]["base_path"], "/handbook")
+        self.assertEqual(sorted(p["url"] for p in doc["pages"]), ["/handbook/", "/handbook/intro/"])
+        ids = set(self.fx.ids())
+        for rule in ("S1-BROKEN-LINK", "S1-CANONICAL-BROKEN", "S1-SITEMAP-ORPHAN", "S1-SITEMAP-MISSING",
+                     "S1-SITEMAP-GAP", "S2-ORPHAN", "S2-UNREACHABLE", "S3-ASSET-UNUSED"):
+            with self.subTest(rule=rule):
+                self.assertNotIn(rule, ids)
+
+    def test_a_link_that_forgets_the_base_path_is_still_broken(self):
+        """On the deployed site /intro/ is outside the base path and 404s."""
+        self._site(extra_links='<a href="/intro/">Broken</a>')
+        broken = [f for f in self.fx.audit()["findings"] if f["id"] == "S1-BROKEN-LINK"]
+        self.assertEqual([f["detail"]["target"] for f in broken], ["/intro/"])
+
+    def test_a_real_top_level_folder_is_never_taken_for_a_base_path(self):
+        """A home page whose canonical names /docs/, on a site that has a docs/ folder."""
+        self.fx.write("index.html", page_html(
+            head_extra='<link rel="canonical" href="https://site.dev/docs/">',
+            body='<h1>H</h1><p><a href="/docs/">Docs</a> ' + "word " * 300 + "</p>"))
+        self.fx.write("docs/index.html", page_html(title="Documentation For The Whole Site Here"))
+        self.assertEqual(self.fx.crawl()["meta"]["base_path"], "")
+
+    def test_a_canonical_its_own_links_do_not_follow_is_not_a_base_path(self):
+        """A misplaced canonical alone must not re-root a normal site."""
+        self.fx.write("index.html", page_html(
+            head_extra='<link rel="canonical" href="https://site.dev/welcome/">',
+            body='<h1>H</h1><p><a href="/about/">About</a> ' + "word " * 300 + "</p>"))
+        self.fx.write("about/index.html", page_html(title="About This Site And The People Behind It"))
+        self.assertEqual(self.fx.crawl()["meta"]["base_path"], "")
+        self.assertNotIn("S1-BROKEN-LINK", self.fx.ids())
+
+
+class TestNonAsciiUrls(Base):
+    """REGRESSION #73, a permanent test from the replay benchmark: a page whose path is
+    not ASCII is named from its file (/archive/tag/监控/), while the sitemap and canonical
+    publish it percent-encoded (/archive/tag/%E7%9B%91%E6%8E%A7/). They were compared
+    without decoding, so existing pages read as missing (173 findings on one site)."""
+
+    HOST = "https://notes-blog.dev"
+
+    def test_norm_path_decodes_to_one_form(self):
+        self.assertEqual(S.norm_path("/archive/tag/%E7%9B%91%E6%8E%A7/"), "/archive/tag/监控/")
+        self.assertEqual(S.norm_path("/archive/tag/%e7%9b%91%e6%8e%a7/"), "/archive/tag/监控/")
+        self.assertEqual(S.norm_path("/caf%C3%A9/"), S.norm_path("/café/"))      # NFC
+        self.assertEqual(S.norm_path("/a%20b/"), "/a b/")
+        # Escapes that change a path's meaning stay escaped.
+        for kept in ("/a%2Fb/", "/c%23-guide/", "/q%3Fx/", "/100%25/"):
+            with self.subTest(path=kept):
+                self.assertEqual(S.norm_path(kept), kept)
+
+    def test_an_encoded_sitemap_canonical_and_link_find_the_page(self):
+        tag = "/archive/tag/%E7%9B%91%E6%8E%A7/"
+        self.fx.write("index.html", page_html(
+            head_extra='<link rel="canonical" href="{0}/">'.format(self.HOST),
+            body='<h1>H</h1><p><a href="{0}">Monitoring</a> <a href="/archive/tag/监控/">Raw</a> '.format(tag)
+                 + "word " * 300 + "</p>"))
+        self.fx.write("archive/tag/监控/index.html", page_html(
+            title="Monitoring Posts On The Notes Blog Archive",
+            head_extra='<link rel="canonical" href="{0}{1}">'.format(self.HOST, tag)))
+        self.fx.write("sitemap.xml",
+                      '<?xml version="1.0"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+                      "<url><loc>{0}/</loc></url><url><loc>{0}{1}</loc></url></urlset>".format(self.HOST, tag))
+        ids = set(self.fx.ids())
+        for rule in ("S1-SITEMAP-ORPHAN", "S1-CANONICAL-BROKEN", "S1-BROKEN-LINK", "S1-SITEMAP-GAP"):
+            with self.subTest(rule=rule):
+                self.assertNotIn(rule, ids)
+
+    def test_an_accented_path_saved_decomposed_still_matches(self):
+        """macOS writes file names decomposed (NFD); generators encode the composed form."""
+        self.fx.write("index.html", page_html(
+            body='<h1>H</h1><p><a href="/caf%C3%A9/">Cafe</a> ' + "word " * 300 + "</p>"))
+        self.fx.write("café/index.html", page_html(title="The Cafe Page Of This Small Example Site"))
+        self.assertNotIn("S1-BROKEN-LINK", self.fx.ids())
+
+    def test_an_encoded_url_that_does_not_exist_is_still_reported(self):
+        self.fx.write("index.html", page_html())
+        self.fx.write("sitemap.xml",
+                      '<?xml version="1.0"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+                      "<url><loc>{0}/</loc></url><url><loc>{0}/archive/tag/%E7%BC%BA/</loc></url>"
+                      "</urlset>".format(self.HOST))
+        orphan = [f for f in self.fx.audit()["findings"] if f["id"] == "S1-SITEMAP-ORPHAN"]
+        self.assertEqual([f["pages"] for f in orphan], [["/archive/tag/缺/"]])
 
 
 class TestBracketHosts(Base):

@@ -225,7 +225,9 @@ def build_index(doc):
         for a in p.get("aliases") or [p["url"]]:
             alias.setdefault(S.norm_path(a), p["url"])
         alias.setdefault(S.norm_path(p["url"]), p["url"])
-    assets = {S.norm_path("/" + a["path"]): a for a in doc.get("assets", [])}
+    # Under a base path an asset is served, and referenced, at <base>/<file> (#69).
+    base_path = doc["meta"].get("base_path") or ""
+    assets = {S.norm_path(base_path + "/" + a["path"]): a for a in doc.get("assets", [])}
     return alias, assets
 
 
@@ -248,7 +250,9 @@ def audit(doc, vitals=None, schema_findings=None):
             reasons.append("X-Robots-Tag noindex")
         indexable[p["url"]] = (not reasons, reasons)
 
-    home = "/" if "/" in by_url else (pages[0]["url"] if pages else None)
+    # The site's own root: / , or the base path a folder build is served under (#69).
+    root = (doc["meta"].get("base_path") or "") + "/"
+    home = root if root in by_url else (pages[0]["url"] if pages else None)
 
     # ---------------------------------------------------------- STAGE 1: index
     if not doc["robots"]["found"]:
@@ -590,7 +594,7 @@ def audit(doc, vitals=None, schema_findings=None):
     conventions = set()
     for p in pages:
         u = p["url"]
-        if u == "/" or is_utility(u):
+        if u == root or is_utility(u):
             continue
         conventions.add("flat" if u.endswith(".html") else "clean")
         bad = []
@@ -607,7 +611,7 @@ def audit(doc, vitals=None, schema_findings=None):
     if len(conventions) > 1:
         out.append(finding("S1-URL-MIXED-CONVENTION", 1, "medium",
                            "Site mixes clean-URL and .html URL conventions.",
-                           sorted(p["url"] for p in pages if p["url"] != "/" and not is_utility(p["url"])),
+                           sorted(p["url"] for p in pages if p["url"] != root and not is_utility(p["url"])),
                            evidence=", ".join(sorted(conventions)), recipe="url-normalize",
                            confidence="medium"))
 
@@ -859,8 +863,9 @@ def audit(doc, vitals=None, schema_findings=None):
             r"og-|twitter-|logo|manifest|browserconfig|sitemap|robots)"
             r"|/(favicon|apple-touch-icon|site\.webmanifest))", re.I)
         unused = []
+        base_path = doc["meta"].get("base_path") or ""
         for a in doc.get("assets", []):
-            path = S.norm_path("/" + a["path"])
+            path = S.norm_path(base_path + "/" + a["path"])
             if (not media_re.search(path) or path in refs
                     or path.rsplit("/", 1)[-1].lower() in names
                     or conventional.search(path)):

@@ -2,6 +2,27 @@
 
 ## Unreleased
 
+- **A site served from a base path is audited as served (#69).** A GitHub Pages project
+  site at `/<repo>/` (Docusaurus `baseUrl`, VitePress `base`, Astro `base`) writes every
+  link, canonical and sitemap URL under that path, while its build folder starts at `/`.
+  A folder audit now infers the base path from the home page, when its canonical (or
+  `og:url`) names a folder that is not a real top-level entry of the build and most of
+  its root-relative links follow it, and names every page, asset and robots-declared
+  sitemap as served. A link that forgets the base path is still reported broken. The
+  replay benchmark found 1,193 false positives from this on one site. Affected rules:
+  `S1-BROKEN-LINK`, `S1-CANONICAL-BROKEN`, `S1-CANONICAL-CROSS`, `S1-HREFLANG-BROKEN`,
+  `S1-SITEMAP-ORPHAN`, `S1-SITEMAP-GAP`, `S1-SITEMAP-MISSING`, `S2-ORPHAN`,
+  `S2-UNREACHABLE`, `S2-DEEP`, `S3-ASSET-UNUSED`, `S3-IMG-HEAVY`. The crawl records the
+  inferred path as `meta.base_path`.
+- **Percent-encoded and non-ASCII URLs match the pages they name (#73).** Paths are
+  compared in one form, percent-escapes decoded and NFC-normalized, so a sitemap or
+  canonical that publishes `/archive/tag/%E7%9B%91%E6%8E%A7/` finds the page built at
+  `archive/tag/监控/`, and a decomposed (macOS) file name matches its composed URL.
+  Escapes that change a path's meaning (`%2F`, `%23`, `%3F`, `%25`) stay escaped. The
+  replay benchmark found 173 findings from this on one site. Affected rules:
+  `S1-SITEMAP-ORPHAN`, `S1-SITEMAP-GAP`, `S1-CANONICAL-BROKEN`, `S1-CANONICAL-CROSS`,
+  `S1-BROKEN-LINK`, `S1-HREFLANG-BROKEN`, `S2-ORPHAN`, `S2-UNREACHABLE`. Both change which
+  findings are emitted, so they ship in a minor release.
 - **The benchmark report: `docs/benchmark-2026-11-replay.md`.** 600 real commits replayed
   through the frozen 1.7.0 gate on a reproducible 15-repository sample. Precision failed
   its pre-registered threshold (76 of 1,442 blocking findings, 5.3%; nearly all false
