@@ -482,4 +482,4 @@ sites they have never seen, and it is expected to be optimistic. The prospective
 (Task 9) is the evidence for unseen sites. A pass here does not on its own reopen
 outreach (section 5): it makes Task 9 eligible to start.
 
-Decided by (B): ____ Date: ____
+Decided by (B): SurendharVr. Date: 2026-10-20.
