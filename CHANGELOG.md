@@ -36,6 +36,14 @@
   scripts into `S1-MIXED-CONTENT`. Found by the seeded recall test. Affected rules:
   `S1-HOST-MISMATCH` (now fires), `S1-MIXED-CONTENT` (no longer fires there), and any
   rule that compares against the base URL on such a site.
+- **A new duplicate title or description that overlaps an old one fails the gate (#60).**
+  `verify` paired a head duplicate group with any base group of the same rule that
+  shared a page, so a change that ended one pair and created another on the same page
+  (`/apps/` moving from "Electron" to "10 years of Electron") read as the old finding
+  changed and passed. The shared text is now part of the finding's identity: a group
+  under different text is new, and a group that grows or shrinks under the same text
+  is still changed. Found by the seeded recall test. Affected rules (in `verify` only):
+  `S3-TITLE-DUPLICATE`, `S3-DESC-DUPLICATE`.
 - **The benchmark report: `docs/benchmark-2026-11-replay.md`.** 600 real commits replayed
   through the frozen 1.7.0 gate on a reproducible 15-repository sample. Precision failed
   its pre-registered threshold (76 of 1,442 blocking findings, 5.3%; nearly all false

@@ -1154,6 +1154,33 @@ class TestVerify(unittest.TestCase):
         b = dict(self.f("S1-BROKEN-LINK", ["/", "/x"], evidence='href="a" -> /a'), detail={"target": "/a"})
         self.assertTrue(V.related(a, b))
 
+    def test_a_new_duplicate_title_sharing_a_page_with_an_old_one_fails_the_gate(self):
+        """REGRESSION #60, a permanent test from the seeded recall run (electron/website):
+        /apps/ shared "Electron" with /governance/; a change gave /apps/ the title of
+        /blog/10-years-of-electron/. The new pair overlapped the old one on /apps/, so it
+        read as that finding 'changed' and the gate passed."""
+        d = tempfile.mkdtemp(prefix="sitemend-verify-")
+        self.addCleanup(shutil.rmtree, d, True)
+        paths = {}
+        for name, pages, title in (("b", ["/apps/", "/governance/"], "Electron"),
+                                   ("c", ["/apps/", "/blog/10-years-of-electron/"], "10 years of Electron")):
+            paths[name] = os.path.join(d, name + ".json")
+            with open(paths[name], "w") as fh:
+                json.dump({"findings": [self.f("S3-TITLE-DUPLICATE", pages, evidence=title)]}, fh)
+        r = sitemend.run("verify.py", "--baseline", paths["b"], "--current", paths["c"],
+                         "--out", os.path.join(d, "v.json"), ok=(0, 1))
+        self.assertEqual(r.returncode, 1)
+        with open(os.path.join(d, "v.json"), encoding="utf-8") as fh:
+            self.assertEqual([f["id"] for f in json.load(fh)["new"]], ["S3-TITLE-DUPLICATE"])
+
+    def test_a_duplicate_group_that_grows_under_the_same_text_is_changed(self):
+        for rule in ("S3-TITLE-DUPLICATE", "S3-DESC-DUPLICATE"):
+            with self.subTest(rule=rule):
+                self.assertTrue(V.related(self.f(rule, ["/a", "/b"], evidence="Same"),
+                                          self.f(rule, ["/a", "/b", "/c"], evidence="Same")))
+                self.assertFalse(V.related(self.f(rule, ["/a", "/b"], evidence="Same"),
+                                           self.f(rule, ["/a", "/c"], evidence="Other")))
+
     def test_finding_that_gets_worse_fails_the_gate(self):
         """REGRESSION found by the 2026-10-16 audit: S1-HOST-MISMATCH going high ->
         critical (a preview host appeared) paired as 'changed' and passed."""
