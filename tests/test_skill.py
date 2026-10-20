@@ -2394,6 +2394,39 @@ class TestHostMismatch(Base):
                 if f["id"] in ("S1-HOST-MISMATCH", "S1-CANONICAL-OFFSITE")]
         self.assertEqual(hits, [("S1-HOST-MISMATCH", "critical")])
 
+    def test_one_preview_url_on_a_localhost_site_is_reported(self):
+        """REGRESSION #70, a permanent test from the seeded recall run (exoscale-academy):
+        every URL the site publishes names http://localhost:9876, and one sitemap <loc>
+        leaked onto a preview host. The preview became the inferred base, the host check
+        then saw a single host, and the only new finding was an unrelated MIXED-CONTENT."""
+        local, preview = "http://localhost:9876", "https://seeded-git-preview.vercel.app"
+        for path in ("", "about/"):
+            self.fx.write(path + "index.html", page_html(
+                head_extra='<link rel="canonical" href="{0}/{1}">'
+                           '<script src="{0}/js/app.js"></script>'.format(local, path)))
+        self.fx.write("sitemap.xml", "<urlset><url><loc>{0}/</loc></url>"
+                                     "<url><loc>{1}/about/</loc></url></urlset>".format(preview, local))
+        doc = self.fx.crawl()
+        doc["meta"]["base_url"] = crawl.infer_base_url(
+            doc["sitemap"]["urls"], doc["pages"], doc["robots"]["sitemaps"])
+        self.assertEqual(doc["meta"]["base_url"], local)
+        found = audit.audit(doc)["findings"]
+        self.assertEqual([f["severity"] for f in found if f["id"] == "S1-HOST-MISMATCH"], ["critical"])
+        self.assertNotIn("S1-MIXED-CONTENT", [f["id"] for f in found])
+
+    def test_a_localhost_site_without_a_preview_url_has_no_mismatch(self):
+        local = "http://localhost:9876"
+        self.fx.write("index.html", page_html(head_extra='<link rel="canonical" href="{0}/">'.format(local)))
+        self.fx.write("sitemap.xml", "<urlset><url><loc>{0}/</loc></url></urlset>".format(local))
+        doc = self.fx.crawl()
+        doc["meta"]["base_url"] = crawl.infer_base_url(
+            doc["sitemap"]["urls"], doc["pages"], doc["robots"]["sitemaps"])
+        self.assertNotIn("S1-HOST-MISMATCH", [f["id"] for f in audit.audit(doc)["findings"]])
+
+    def test_an_example_com_leftover_on_a_platform_host_is_left_to_placeholder_domain(self):
+        self.assertEqual(self._hit(canonical="https://acme.netlify.app/", og_url="https://example.com/",
+                                   sitemap_host="acme.netlify.app", base="https://acme.netlify.app"), [])
+
     def test_preview_only_site_still_infers_its_own_host(self):
         """With no production host on offer, inference falls back to the first URL."""
         self.assertEqual(crawl.infer_base_url(["https://acme.netlify.app/"], [], []),
