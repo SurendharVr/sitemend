@@ -844,6 +844,28 @@ class TestSchemaReferences(unittest.TestCase):
         self.assertTrue(self._required(known))
 
 
+class TestReferencedBasenamesIsLinear(unittest.TestCase):
+    """REGRESSION #71, a permanent test from the replay benchmark: the media-name regex
+    restarted at every position of a long run of word characters and dots, so a 40,000
+    character run took 91 s and one site's 45 MB of minified JS took 2.5 h per commit."""
+
+    OLD = __import__("re").compile(
+        r"[\w\-.]+\.(?:png|jpe?g|webp|avif|gif|svg|ico|mp4|webm|pdf|woff2?)", __import__("re").I)
+
+    def test_same_names_as_the_old_pattern(self):
+        for text in ("logo.png", "a.b.c.PNG x", "x.png-y.webp", "img/hero.jpeg?v=1", ".png",
+                     ".png.png", "a.pngx b.svg", "font.woff2", "font.woff", "-a_b.gif",
+                     '"https://site.dev/img/og-card.jpg"', "no media here", "a..pdf", "x.ico.ico"):
+            with self.subTest(text=text):
+                self.assertEqual(crawl.referenced_basenames(text),
+                                 {m.lower() for m in self.OLD.findall(text)})
+
+    def test_a_long_run_without_an_extension_is_fast(self):
+        start = time.time()
+        self.assertEqual(crawl.referenced_basenames("a.b" * 200000 + " logo.png"), {"logo.png"})
+        self.assertLess(time.time() - start, 2)
+
+
 class TestBasePath(Base):
     """REGRESSION #69, a permanent test from the replay benchmark: a site served from a
     base path (a GitHub Pages project site at /<repo>/, Docusaurus baseUrl) writes every
