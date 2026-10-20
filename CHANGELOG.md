@@ -28,6 +28,14 @@
   media extension (a 40,000-character run took 91 s; one site's 45 MB of minified JS took
   about 2.5 hours per commit). It is now linear and finds the same names. Findings are
   unchanged.
+- **A preview URL leaked into a site built for localhost is reported (#70).** When
+  every URL a site publishes names a dev server (`http://localhost:9876`) and one names a
+  preview deploy (`*.vercel.app`), the preview no longer becomes the inferred base URL,
+  and the host check counts the loopback host it differs from. Before, the leak raised no
+  `S1-HOST-MISMATCH`, and the `https` preview base turned the site's own `http://localhost`
+  scripts into `S1-MIXED-CONTENT`. Found by the seeded recall test. Affected rules:
+  `S1-HOST-MISMATCH` (now fires), `S1-MIXED-CONTENT` (no longer fires there), and any
+  rule that compares against the base URL on such a site.
 - **The benchmark report: `docs/benchmark-2026-11-replay.md`.** 600 real commits replayed
   through the frozen 1.7.0 gate on a reproducible 15-repository sample. Precision failed
   its pre-registered threshold (76 of 1,442 blocking findings, 5.3%; nearly all false

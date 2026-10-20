@@ -39,11 +39,14 @@ def infer_base_url(sm_urls, pages, robots_sitemaps):
                          next((p["canonical"] for p in pages if p.get("canonical")), None),
                          robots_sitemaps[0] if robots_sitemaps else None)
              if u and u.startswith("http")]
-    real = [u for u in cands if not audit.is_placeholder_host(urlsplit(u).hostname)
-            and not (urlsplit(u).hostname or "").endswith(audit.PREVIEW_HOSTS)]
-    if not (real or cands):
+    preview = lambda u: (urlsplit(u).hostname or "").endswith(audit.PREVIEW_HOSTS)
+    real = [u for u in cands if not audit.is_placeholder_host(urlsplit(u).hostname) and not preview(u)]
+    # Next a placeholder (a site built for localhost), so one leaked preview URL is
+    # compared against it instead of becoming the base (#70); a preview-only site keeps its host.
+    best = real or [u for u in cands if not preview(u)] or cands
+    if not best:
         return None
-    sp = urlsplit((real or cands)[0])
+    sp = urlsplit(best[0])
     return "{0}://{1}".format(sp.scheme, sp.netloc)
 
 
