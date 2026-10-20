@@ -1,6 +1,19 @@
 # Changelog
 
-## Unreleased
+## 1.8.0 - 2026-10-20
+
+The example workflows and README pin `@v1.8.0`. A minor release under the stability policy,
+because it fixes the false positives and misses that the 1.7.0 benchmark found, and those
+fixes change findings:
+- base-path sites (#69) and percent-encoded URLs (#73) change the link, canonical,
+  hreflang, sitemap, orphan and asset rules named in their entries;
+- a preview URL on a localhost site (#70) now fires `S1-HOST-MISMATCH` instead of
+  `S1-MIXED-CONTENT`;
+- in `verify`, `S3-TITLE-DUPLICATE` and `S3-DESC-DUPLICATE` now pair by their shared
+  text (#60).
+
+#71 is a performance fix that leaves findings unchanged. The benchmark itself stays on
+1.7.0; re-measuring on 1.8.0 needs a new dated addendum.
 
 - **A site served from a base path is audited as served (#69).** A GitHub Pages project
   site at `/<repo>/` (Docusaurus `baseUrl`, VitePress `base`, Astro `base`) writes every
