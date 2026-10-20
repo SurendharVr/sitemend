@@ -344,8 +344,10 @@ def srcset_urls(value):
 ASSET_REF_RE = re.compile(r"url\(\s*['\"]?([^'\")]+)", re.I)
 
 
-MEDIA_NAME_RE = re.compile(
-    r"[\w\-.]+\.(?:png|jpe?g|webp|avif|gif|svg|ico|mp4|webm|pdf|woff2?)", re.I)
+# Two linear passes instead of [\w\-.]+\.(?:ext), which rescans a long run that has no
+# extension from every start position (#71). A name is a run cut at its last extension.
+NAME_RUN_RE = re.compile(r"[\w\-.]+")
+MEDIA_EXT_RE = re.compile(r"\.(?:png|jpe?g|webp|avif|gif|svg|ico|mp4|webm|pdf|woff2?)", re.I)
 
 
 def referenced_basenames(text):
@@ -356,7 +358,12 @@ def referenced_basenames(text):
     path resolver misses -- and it can only ever suppress an unused-asset finding,
     never create one.
     """
-    return {m.lower() for m in MEDIA_NAME_RE.findall(text or "")}
+    names = set()
+    for run in NAME_RUN_RE.findall(text or ""):
+        end = max((m.end() for m in MEDIA_EXT_RE.finditer(run) if m.start()), default=0)
+        if end:
+            names.add(run[:end].lower())
+    return names
 
 
 def referenced_assets(soup, page_url, extra_text=""):

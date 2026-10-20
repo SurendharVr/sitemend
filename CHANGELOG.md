@@ -23,6 +23,11 @@
   `S1-SITEMAP-ORPHAN`, `S1-SITEMAP-GAP`, `S1-CANONICAL-BROKEN`, `S1-CANONICAL-CROSS`,
   `S1-BROKEN-LINK`, `S1-HREFLANG-BROKEN`, `S2-ORPHAN`, `S2-UNREACHABLE`. Both change which
   findings are emitted, so they ship in a minor release.
+- **Large JS bundles no longer stall the crawl (#71).** The scan for media file names in
+  CSS, JS and pages was quadratic on a long run of word characters and dots without a
+  media extension (a 40,000-character run took 91 s; one site's 45 MB of minified JS took
+  about 2.5 hours per commit). It is now linear and finds the same names. Findings are
+  unchanged.
 - **The benchmark report: `docs/benchmark-2026-11-replay.md`.** 600 real commits replayed
   through the frozen 1.7.0 gate on a reproducible 15-repository sample. Precision failed
   its pre-registered threshold (76 of 1,442 blocking findings, 5.3%; nearly all false
