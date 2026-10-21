@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- **The 1.8.0 benchmark: `docs/benchmark-1.8.0-replay.md`.** The same 600 commits
+  replayed through 1.8.0 (Addendum 9):
+  - **Precision** rose from 5.3% to 82.0% (82 of 100 blocking findings) and still fails
+    its 95% threshold, so outreach stays stopped and Task 9 does not start.
+  - **Frequency** (21 of 549 commits, 3.8%) and **seeded recall** (57 of 58, 98.3%)
+    met theirs.
+  - **The shortfall:** 13 of the 18 findings that did not count come from one cause,
+    `crawl.py` skipping folders named `vendor` (and `out`, `build`, `tmp`) inside a
+    built site.
+  - **Data:** `bench/replay/1.8.0/`, `bench/ledger-1.8.0.csv` and `bench/seeded/1.8.0/`.
 - **Re-measurement on 1.8.0 (Addendum 9, signed by SurendharVr on 2026-10-20).** Replay and
   seeded recall are re-run on the same 15 repositories and 600 comparisons with
   `sitemend==1.8.0`. The thresholds and decision rules are unchanged, and the results
