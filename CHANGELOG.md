@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- **The 1.9.0 benchmark: `docs/benchmark-1.9.0-replay.md`.** The same 600 commits
+  replayed through 1.9.0 (Addendum 10), and all three pre-registered thresholds are met:
+  - **Precision:** 82 of 86 (95.3%), with no margin; the 4 that do not count are
+    `unclear`.
+  - **Frequency:** 21 of 556 commits (3.8%).
+  - **Seeded recall:** 66 of 67 (98.5%).
+  - **What changed from 1.8.0:** exactly the 14 findings that did not count are gone, and
+    all 82 true regressions are still caught.
+  - **What it means:** as pre-registered, the prospective run (Task 9) is eligible to
+    start, and outreach waits for it. The result is optimistic: every fix came from this
+    sample.
+  - **Data:** `bench/replay/1.9.0/`, `bench/ledger-1.9.0.csv` and `bench/seeded/1.9.0/`.
 - **Re-measurement on 1.9.0 (Addendum 10, signed by SurendharVr on 2026-10-21).** Replay and
   seeded recall re-run on the same 15 repositories with `sitemend==1.9.0`.
   - Verdicts carry over only to identical findings, from the 1.8.0 ledger first, then
