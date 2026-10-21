@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- **Pages in folders named `vendor`, `out`, `build` or `tmp` are crawled when the site
+  uses them (#82).** A folder audit skipped every such folder at any depth, which is right
+  for dependencies in a source tree but wrong for a built site whose routes use those
+  names (a Docusaurus page at `b2b/stats/purchases/vendor/`). Those folders are now
+  walked. A page in one is kept only when a page of the site links to it or its sitemap
+  lists it, so a library's bundled HTML still stays out. `node_modules`, virtualenvs and
+  sitemend's own output are never walked. The 1.8.0 replay found 13 false positives from
+  this on one site. Affected rules: `S1-BROKEN-LINK`, `S1-SITEMAP-ORPHAN`, and any rule
+  that now sees those pages (`S2-*`, `S3-*`, `S5-*`).
 - **The 1.8.0 benchmark: `docs/benchmark-1.8.0-replay.md`.** The same 600 commits
   replayed through 1.8.0 (Addendum 9):
   - **Precision** rose from 5.3% to 82.0% (82 of 100 blocking findings) and still fails
