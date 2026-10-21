@@ -543,4 +543,4 @@ is drawn by Addendum 5's procedure (same frame, seed and eligibility rules), tak
 next 3 eligible repositories per stack in draw order after the 15 already used. Fixing
 the rules on the same sample again would only fit them more closely to it.
 
-Decided by (B): ____ Date: ____
+Decided by (B): SurendharVr. Date: 2026-10-21.

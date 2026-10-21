@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- **Re-measurement on 1.9.0 (Addendum 10, draft, awaiting B's signature).** Replay and
+- **Re-measurement on 1.9.0 (Addendum 10, signed by SurendharVr on 2026-10-21).** Replay and
   seeded recall re-run on the same 15 repositories with `sitemend==1.9.0`.
   - Verdicts carry over only to identical findings, from the 1.8.0 ledger first, then
     1.7.0.
