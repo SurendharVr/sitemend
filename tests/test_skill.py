@@ -1226,6 +1226,26 @@ class TestVerify(unittest.TestCase):
         with open(os.path.join(d, "v.json"), encoding="utf-8") as fh:
             self.assertEqual([f["id"] for f in json.load(fh)["new"]], ["S3-TITLE-DUPLICATE"])
 
+    def test_a_duplicate_group_renamed_on_the_same_pages_is_changed_not_new(self):
+        """REGRESSION #82, a permanent test from the 1.8.0 replay (mj3622.github.io): 108
+        archive pages already shared "Archive - Minjer"; a commit translated it to
+        "文章 - Minjer". Keyed by text alone (#60), the same duplicate read as new and
+        blocked."""
+        d = tempfile.mkdtemp(prefix="sitemend-verify-")
+        self.addCleanup(shutil.rmtree, d, True)
+        pages = ["/archive/"] + ["/archive/tag/t{0}/".format(i) for i in range(107)]
+        paths = {}
+        for name, title in (("b", "Archive - Minjer"), ("c", "文章 - Minjer")):
+            paths[name] = os.path.join(d, name + ".json")
+            with open(paths[name], "w", encoding="utf-8") as fh:
+                json.dump({"findings": [self.f("S3-TITLE-DUPLICATE", pages, evidence=title)]}, fh)
+        r = sitemend.run("verify.py", "--baseline", paths["b"], "--current", paths["c"],
+                         "--out", os.path.join(d, "v.json"), ok=(0, 1))
+        self.assertEqual(r.returncode, 0, r.stdout[-2000:])
+        with open(os.path.join(d, "v.json"), encoding="utf-8") as fh:
+            v = json.load(fh)
+        self.assertEqual(v["new"], [])
+
     def test_a_duplicate_group_that_grows_under_the_same_text_is_changed(self):
         for rule in ("S3-TITLE-DUPLICATE", "S3-DESC-DUPLICATE"):
             with self.subTest(rule=rule):
