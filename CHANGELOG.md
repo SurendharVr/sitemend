@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **A duplicate group whose shared text is reworded is the same finding (#82).** Since #60
+  `verify` identifies a duplicate-title or duplicate-description group by its text, so
+  translating the title 108 archive pages already shared read as a new duplicate and
+  failed the gate. A group on exactly the same pages now pairs as changed whatever its
+  text; a new pair on an overlapping page under different text (#60) is still new.
+  Affected rules (in `verify` only): `S3-TITLE-DUPLICATE`, `S3-DESC-DUPLICATE`.
 - **Pages in folders named `vendor`, `out`, `build` or `tmp` are crawled when the site
   uses them (#82).** A folder audit skipped every such folder at any depth, which is right
   for dependencies in a source tree but wrong for a built site whose routes use those
