@@ -17,8 +17,8 @@ figures are not strictly comparable across runs.
 
 **What changed from 1.8.0 is what the fixes targeted, and nothing else.**
 - **Removed:** the 14 blocking findings on 1.8.0 that did not count (13 false positives
-  and 1 true but pre-existing) are gone. Those are the ones #82 and its duplicate-pairing
-  follow-up were written for.
+  and 1 true but pre-existing) are gone. Those are what the two parts of #82 were written
+  for.
 - **Kept:** all 82 true regressions found on 1.8.0 are still found.
 - **Added:** no new blocking finding appeared.
 
@@ -35,7 +35,8 @@ figures are not strictly comparable across runs.
   they have never seen; Task 9 is that evidence.
 
 This page gives totals only and names no sites. Every number comes from a data file in
-`bench/`, produced by a script.
+`bench/`, produced by a script, except the two job durations below, which are GitHub's own
+job timestamps for the runs.
 
 ## Method
 
@@ -63,8 +64,9 @@ Unchanged from the 1.8.0 run (`docs/benchmark-1.8.0-replay.md`), except:
 
 - **No tool failures.** Across the 576 commits audited, the median audit took 7.3 s
   (90th percentile 118.9 s).
-- **Build failures** are back to the 1.7.0 count. The 7 comparisons lost on 1.8.0 to
-  network timeouts during one repository's build built this time.
+- **Build failures** are back to the 1.7.0 count. On 1.8.0, four of one repository's builds
+  timed out fetching from the network, costing 7 comparisons; this time those builds
+  succeeded.
 - **One repository's job took longer** (4 h 8 min, against 2 h 41 min on 1.8.0). Both its
   median build time (72 s to 122 s) and its median audit time (171 s to 250 s) rose by a
   similar factor. The build is the project's own code, so a slower runner is the likelier
@@ -104,8 +106,8 @@ versions.
 
 - **Same sample as every fix.** Three measurements and two rounds of fixes on these 15
   repositories. 95.3% is the result on data the rules were corrected against.
-- **No fresh verdicts.** Every 1.9.0 verdict was carried over from 1.8.0, including the 25
-  that were Claude's readings accepted by B.
+- **No fresh verdicts.** Every 1.9.0 verdict was carried over from 1.8.0. 18 of them are
+  among the 25 that were Claude's readings, accepted by B.
 - **The 4 unclear findings were never resolved.** Checking them against the live site
   could move precision to 100% or leave it where it is; the pre-registration counts them
   against it either way.
@@ -119,7 +121,7 @@ As pre-registered:
 - **Task 9 is eligible to start:** the prospective run, measuring sitemend on real pull
   requests on sites it was not tuned on, as they happen. It is the evidence this result
   cannot give.
-- **Outreach stays stopped** until Task 9 reports (Addenda 9 and 10).
+- **Outreach does not reopen on this result alone** (Addenda 9 and 10).
 - **Addendum 10, part 7 does not apply,** because precision did not fail.
 
 ## How to rerun it
