@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+- **Re-measurement on 1.9.0 (Addendum 10, signed by SurendharVr on 2026-10-21).** Replay and
+  seeded recall re-run on the same 15 repositories with `sitemend==1.9.0`.
+  - Verdicts carry over only to identical findings, from the 1.8.0 ledger first, then
+    1.7.0.
+  - The seeded harness counts title duplicates over every crawled page, fixing its 1.8.0
+    `title-duplicated` miss (#81). That type is pooled again, and `rating-unsupported`
+    and `sitemap-preview-host` stay apart.
+  - The limitation is stated more strongly: this is the third measurement on the sample
+    every fix came from.
+  - If precision fails again, the next measurement uses a fresh sample, drawn by
+    Addendum 5's procedure.
+
 ## 1.9.0 - 2026-10-21
 
 The example workflows and README pin `@v1.9.0`. A minor release under the stability policy:
