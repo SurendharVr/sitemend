@@ -1,6 +1,19 @@
 # Changelog
 
-## Unreleased
+## 1.9.0 - 2026-10-21
+
+The example workflows and README pin `@v1.9.0`. A minor release under the stability policy:
+it fixes the false positives and the recall gap that the 1.8.0 benchmark found, and those
+fixes change findings:
+- pages in folders named `vendor`, `out`, `build` or `tmp` (#82) change `S1-BROKEN-LINK`,
+  `S1-SITEMAP-ORPHAN` and any rule that now sees those pages;
+- in `verify`, a duplicate group reworded on the same pages pairs as changed (#82):
+  `S3-TITLE-DUPLICATE` and `S3-DESC-DUPLICATE`;
+- claims on pages in any script (#81): `S5-SCHEMA-UNSUPPORTED-CLAIM` and
+  `S5-SCHEMA-CLAIM-OFFPAGE`.
+
+The benchmark workflows stay on 1.8.0, the version its published report measured.
+Measuring 1.9.0 needs a new dated addendum.
 
 - **Structured-data claims are checked on pages in any script (#81).** Claim text was
   reduced to `[a-z0-9]`, so a page written entirely in Korean, Chinese, Arabic and the like
