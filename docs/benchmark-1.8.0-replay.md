@@ -134,9 +134,9 @@ the harness now picks the home page as its target:
 
 As pre-registered, precision failing means fixing the rules, not starting Task 9:
 
-- **The `vendor` exclusion:** a built output should not skip real page folders. This
+- **The `vendor` exclusion (#82):** a built output should not skip real page folders. This
   accounts for 13 of the 18.
-- **The duplicate rename (#60's side effect):** a group whose pages are unchanged and only
+- **The duplicate rename (#82, a side effect of #60):** a group whose pages are unchanged and only
   whose shared text changed is the same defect, not a new one.
 - **Non-Latin claim checks (#81).**
 
