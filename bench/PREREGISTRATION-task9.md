@@ -56,7 +56,11 @@ A repository is excluded if it is any of:
 - **Eligibility,** checked in draw order on the draw date, every repository looked at
   recorded in `bench/task9/draw.csv` with its outcome and reason. All must hold:
   - Addendum 5, rule 4 (public, not a fork, not archived, site config present), with
-    the 12-month commit window ending on the draw date instead of the cutoff;
+    the draw date in place of the cutoff: the 12-month commit window ends on the draw
+    date, and the site config is checked at the default branch's head on the draw date;
+  - a GitHub homepage that serves the built site: it answers 200 over https and its
+    home page has the same `<title>` as the build's home page. This is the production
+    URL for url mode (3.3) and for the post-merge check (3.4);
   - at least ____ pull requests merged into the default branch in the 8 weeks before the
     draw date (suggested: 8, about one a week, so the window has PRs to gate);
   - builds by Addendum 5, rule 5 (with Addendum 6's Node rule) at the default branch's
@@ -72,7 +76,7 @@ A repository is excluded if it is any of:
 
 The draw is run once and committed (`bench/task9/repos.json`, `draw.csv`) before the
 window opens. A repository that later archives itself, goes private or stops building on
-every PR stays in the sample, and its PRs count as skipped (4.3).
+every PR stays in the sample, and its PRs count as skipped (3.5).
 
 ### 2.3 No contact during the window
 
@@ -89,10 +93,12 @@ ____ (suggested: yes, one issue per site, only after the report, and only for
 
 - Opens (UTC): ____ (suggested: 00:00 on the day after the draw is committed).
 - Length: ____ (suggested: 8 weeks).
-- Extension: if fewer than 20 blocking findings have a verdict when the window closes,
-  it is extended ____ at a time (suggested: 4 weeks), up to ____ in all (suggested: 16
-  weeks). If 20 are never reached, precision counts as not met (as in section 4 of the
-  main pre-registration).
+- Extension: if fewer than 20 blocking findings exist in the measure precision uses
+  (section 5) when the window closes, it is extended ____ at a time (suggested: 4 weeks),
+  up to ____ in all (suggested: 16 weeks). Findings are counted, not verdicts, so a
+  verdict still due (4.3) does not trigger an extension. Precision is computed once every
+  finding has its verdict. If 20 are never reached, precision counts as not met (as in
+  section 4 of the main pre-registration).
 
 ### 3.2 What counts as a pull request
 
@@ -109,23 +115,47 @@ counts: that is the per-PR gate a maintainer would run.
 
 ### 3.3 What is checked
 
-Each counted PR is **one comparison**, made on its last head commit before it is merged
-or closed, or at the window's close if it is still open. A PR closed less than ____
-after its last push (suggested: 10 minutes) is checked on that head after closing. A PR
-reopened in the window is still one comparison.
+The harness polls every drawn repository every ____ (suggested: 15 minutes). Each new
+head commit of a counted PR is checked when it is first seen, and in url mode as soon as
+its preview reports a successful deploy, so the check runs while the preview is up.
+
+Each counted PR is still **one comparison**: the check of its last head commit before it
+is merged or closed, or at the window's close if it is still open. Checks of earlier heads
+are kept in the results but are not counted. A last head that no poll saw before the PR
+closed is checked after closing, from its commit, and in url mode from its preview if
+that is still up. A PR reopened in the window is still one comparison.
 
 - **Folder mode, every PR:** head built with the repository's rule-5 command, compared
   with the PR's base commit built the same way, through `verify.py` as the Action does.
 - **URL mode, PRs with a public preview:** the preview deploy of the head commit is
   audited as `url` and production (the repository's GitHub homepage) as `baseline-url`,
   with the Action's default `max-pages` (200) and no secret header. A preview behind
-  authentication is not checked in url mode.
+  authentication is not checked in url mode. Soft 404s (`S1-SOFT-404`) are detected
+  only here, since sitemend probes for them only on an HTTP crawl.
 
 A finding counts as **blocking** exactly as the gate decides it: new or worsened,
 critical or high, measured (high confidence), and not waived by the repository's own
 `.sitemend-waivers.json` (`verify.py`, `blocks()`).
 
-### 3.4 Skips
+### 3.4 Production after each merge
+
+A preview-host leak shows in production, after a PR is merged and deployed, and neither
+check above can see it: a preview naming its own host is not a mismatch, and the folder
+build runs without the host's deploy variables.
+
+- Production is audited (`sitemend check <production>`, `max-pages` 200) at window open,
+  and again after each merge into the default branch, once production has changed or
+  ____ after the merge (suggested: 2 hours), whichever comes first. Each audit is
+  compared with the one before it.
+- A new critical or high finding is attributed to the PRs merged between the two audits.
+  B judges it like a gate finding (4.3), in a separate ledger,
+  `bench/ledger-task9-production.csv`, with the same fields and `mode: production`.
+- A `true_regression` there whose PR passed the gate is a **miss**. One that the gate
+  also blocked on the same PR confirms the gate's finding, and is not counted twice.
+- These findings are not gate findings, so they are outside precision and frequency.
+  They are the run's measure of preview-host leaks, and its floor on misses (section 5).
+
+### 3.5 Skips
 
 As in the main pre-registration, none of these count toward frequency or precision:
 
@@ -189,23 +219,34 @@ is the expected verdict when production lags the PR's base branch.
 
 | Measure | Unit | Main pre-registration | Task 9 value |
 |---|---|---|---|
-| Blocking precision | per blocking finding: `true_regression` / all blocking findings with a verdict | at least 95%, with at least 20 verdicts | ____ (suggested: the same, at least 95% with at least 20, both modes pooled) |
-| Frequency | per PR: PRs with at least one `true_regression` blocking finding / PRs compared | at least 1 per 100 commits | ____ (suggested: at least 1 per 100 PRs compared) |
+| Blocking precision | per blocking finding: `true_regression` / all blocking findings with a verdict | at least 95%, with at least 20 verdicts | ____ (suggested: at least 95% with at least 20, folder mode only; url mode reported apart, see below) |
+| Frequency | per PR: PRs with at least one `true_regression` blocking finding / PRs compared | at least 1 per 100 commits | ____ (suggested: at least 1 per 100 PRs compared, in the same mode as precision) |
 | Tool failures | per PR: PRs with a tool failure / PRs counted | not a threshold | ____ (suggested: at most 5%) |
+
+**Which mode the thresholds use:** ____ (suggested: folder mode only). In url mode the
+baseline is production, not the PR's base commit, so a gap between the two shows up as a
+finding the PR did not cause, and would count against precision because of how the run
+is set up rather than how the rules behave. Folder mode compares the PR with its own
+base, as replay did. If B chooses both modes pooled instead, a PR counts toward
+frequency when it has a `true_regression` blocking finding in either mode, and a finding
+in both modes is one finding (4.1).
 
 Reported, not thresholds:
 
 - precision and frequency per mode (folder, url), per stack and per rule;
 - bot PRs apart from the rest;
-- **preview-host leaks** (`S1-HOST-MISMATCH` at critical, and the sitemap and canonical
-  forms the seeded `sitemap-preview-host` mutation covers) and **soft 404s**
-  (`S1-SOFT-404`): count of blocking findings, verdicts and PRs with each, in each mode.
-  If a type has no `true_regression`, the report gives the rule-of-three upper bound
-  (3 / PRs checked in url mode) on how often it occurs, instead of "none found";
-- **misses, as a lower bound:** production of each site is audited at window open and
-  window close with `fail-on: high`. A critical or high finding present at close, absent
-  at open, and traced to a PR the gate passed in the window is a miss. This cannot see
-  regressions fixed again before the window closes, so it is a floor, not recall.
+- **preview-host leaks** (`S1-HOST-MISMATCH` at critical, the rule the seeded
+  `sitemap-preview-host` mutation checks): blocking findings and verdicts in each gate
+  mode, and `true_regression` findings in the post-merge production check (3.4), with
+  how many of those the gate blocked and how many it missed;
+- **soft 404s** (`S1-SOFT-404`, url mode only): blocking findings, verdicts and PRs;
+- for either type with no `true_regression`, the rule-of-three upper bound on how often
+  it occurs, instead of "none found": 3 / merged PRs for preview-host leaks, 3 / PRs
+  checked in url mode for soft 404s;
+- **misses, as a lower bound:** `true_regression` findings from the post-merge
+  production check (3.4) on PRs the gate passed. A regression the PR's own preview or
+  build could not show, or one fixed again before the next production audit, is not
+  seen, so this is a floor, not recall.
 
 Seeded recall is not re-run here; the 1.9.0 seeded result stands.
 
@@ -226,9 +267,11 @@ Applied to the window's results as written, with the outcome at the top of the r
   fixed and re-measured on a fresh draw, even if precision and frequency pass.
 - **Preview-host leaks and soft 404s:** whatever the rest shows, no public material
   claims sitemend catches a type on real pull requests unless this run has at least ____
-  `true_regression` blocking finding of that type (suggested: 1). Without one, the
-  material says the type is tested by seeded mutation only.
-- **Fewer than 20 verdicts after the longest extension:** precision counts as not met,
+  `true_regression` blocking finding of that type from the gate (suggested: 1). A type
+  found only by the post-merge production check (3.4) may be described as found in
+  production audits, not as caught on pull requests. With neither, the material says
+  the type is tested by seeded mutation only.
+- **Fewer than 20 blocking findings after the longest extension:** precision counts as not met,
   and the first rule above applies.
 
 ## 7. Known limitations
@@ -236,8 +279,14 @@ Applied to the window's results as written, with the outcome at the top of the r
 - **What this run is for.** Replay builds each commit locally and cannot see
   environment variables, hosting or runtime behaviour, so preview-host leaks and soft
   404s were under-counted there (section 6 of the main pre-registration). URL mode on
-  real preview deploys is the first measurement that can see them. It sees them only on
-  sites with public previews, which are not a random part of the sample.
+  real preview deploys is the first measurement that can see soft 404s, and the
+  post-merge production check (3.4) the first that can see preview-host leaks. A gate
+  run on a PR can rarely see a preview-host leak itself, so the run is likely to show
+  most of them as misses: that is what it is set up to find out.
+- **Previews skew the soft-404 sample.** Soft 404s are seen only on sites with public
+  previews, which are not a random part of the sample. Vercel previews are behind
+  Deployment Protection by default and are not checked, so those sites lean towards
+  Netlify and Cloudflare Pages.
 - **Production is not the base.** In url mode the baseline is production, which may lag
   or lead the PR's base branch. Differences that come from that gap are judged
   `true_but_preexisting` or `false_positive`, and count against precision.
@@ -261,7 +310,9 @@ Applied to the window's results as written, with the outcome at the top of the r
   that, it is run only on the repository's own fixtures (`examples/demo-site`,
   `examples/demo-site-intl`), never on a drawn repository.
 - Committed: `repos.json`, `draw.csv`, one results row per PR (repo, PR number, head and
-  base SHA, mode, outcome, blocking count), the ledger and the report. Not committed:
+  base SHA, mode, outcome, blocking count), one row per production audit (repo, time,
+  PRs merged since the last one, new critical and high count), both ledgers and the
+  report. Not committed:
   crawl output or built HTML, which hold the full text of the audited sites
   (`RELEASING.md`, step 5).
 - The report gives totals and names no sites, like the replay reports.
