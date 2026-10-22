@@ -7,11 +7,13 @@
   protection-bypass secret) were set on every request, and `requests` keeps custom headers
   when a redirect leaves the host. A preview page that redirected off-site, for example
   through a fork PR's `_redirects` rule, sent the secret to that host. They now go only to
-  the origin of the URL passed to `sitemend check`, on the crawl, the robots.txt and
-  sitemap fetch and the soft-404 probe, and are dropped on any hop to another origin,
-  including apex to www. If you set `http-headers` on previews that fork PRs can change,
-  consider rotating the secret. Findings are unchanged unless a protected site is served
-  from another origin than the one passed.
+  the host of the URL passed to `sitemend check`, by requests' own rule for
+  `Authorization`: an http -> https upgrade and an explicit default port count as the same
+  site, while another host (apex to www included) or port does not. The rule covers the
+  crawl, the robots.txt and sitemap fetch, the soft-404 probe and every redirect hop. If
+  you set `http-headers` on previews that fork PRs can change, consider rotating the
+  secret. Findings are unchanged unless a protected site is served from another host
+  than the one passed.
 - **The 1.9.0 benchmark: `docs/benchmark-1.9.0-replay.md`.** The same 600 commits
   replayed through 1.9.0 (Addendum 10), and all three pre-registered thresholds are met:
   - **Precision:** 82 of 86 (95.3%), with no margin; the 4 that do not count are

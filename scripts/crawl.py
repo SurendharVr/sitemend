@@ -688,53 +688,54 @@ def extra_headers(env=None):
     return out
 
 
-def _origin(url):
-    p = urlsplit(url)
-    return (p.scheme.lower(), (p.netloc or "").lower())
-
-
 def http_session(trusted):
-    """A requests session that sends the SITEMEND_HTTP_HEADERS headers only to the origin
+    """A requests session that sends the SITEMEND_HTTP_HEADERS headers only to the site
     of trusted, the URL the user asked to crawl. Those headers are secrets (a Vercel
     bypass token, basic auth), and requests keeps custom headers on a redirect to another
     host: a page of the preview that redirected off-site would have handed the token to
-    whoever runs that host. So they are left off any request, or redirect hop, whose
-    origin differs, including an apex -> www hop."""
+    whoever runs that host.
+
+    "The site" is requests' own rule for Authorization (should_strip_auth): the same host,
+    with an http -> https upgrade and an explicit default port both counting as the same.
+    Another host, apex -> www included, never gets them. The rule is applied to every
+    request and every redirect hop, so a hop back to the site gets them again."""
     import requests
 
-    extra, home = extra_headers(), _origin(trusted)
+    extra = extra_headers()
     sess = requests.Session()
     sess.headers["User-Agent"] = "sitemend-crawler/1.0 (+local audit)"
     sess.headers["Accept"] = BROWSER_ACCEPT
     prepare, rebuild = sess.prepare_request, sess.rebuild_auth
 
-    def strip(prep):
-        if _origin(prep.url) != home:
-            for name in extra:
+    def apply(prep):
+        same_site = not sess.should_strip_auth(trusted, prep.url)
+        for name, value in extra.items():
+            if same_site:
+                prep.headers[name] = value
+            else:
                 prep.headers.pop(name, None)
-
-    def prepare_request(request):
-        if _origin(request.url) == home:
-            request.headers = dict(extra, **(request.headers or {}))
-        return prepare(request)
+        return prep
 
     def rebuild_auth(prep, response):      # called on every redirect hop
         rebuild(prep, response)
-        strip(prep)
+        apply(prep)
 
-    sess.prepare_request, sess.rebuild_auth = prepare_request, rebuild_auth
+    sess.prepare_request = lambda request: apply(prepare(request))
+    sess.rebuild_auth = rebuild_auth
     return sess
 
 
 def probe_soft404(start, timeout=20, trusted=None):
     """Request one path that cannot exist. A site that answers it with 200 serves
     "not found" as a real page, and every mistyped or deleted URL becomes an indexable
-    duplicate of the error page. trusted: the URL whose origin may get the extra headers
-    (default start)."""
+    duplicate of the error page. start is where the crawl landed; trusted is the URL the
+    user passed (default start), so the probe gets the extra headers exactly when the
+    crawl's own requests did (http_session)."""
     origin = "{0}://{1}".format(*urlsplit(start)[:2])
     path = "/sitemend-404-probe-" + secrets.token_hex(6)
     try:
-        r = http_session(trusted or start).get(origin + path, timeout=timeout, allow_redirects=True)
+        with http_session(trusted or start) as sess:
+            r = sess.get(origin + path, timeout=timeout, allow_redirects=True)
     except Exception as e:
         return {"path": path, "status": None, "error": str(e)[:200]}
     return {"path": path, "status": r.status_code, "final_url": r.url,

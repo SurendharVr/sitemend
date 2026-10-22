@@ -3486,55 +3486,117 @@ class TestExtraHeaders(unittest.TestCase):
             else:
                 os.environ["SITEMEND_HTTP_HEADERS"] = old
 
+    def _requests(self):
+        try:
+            import requests
+        except ImportError:
+            raise unittest.SkipTest("requests not installed (http mode is optional)")
+        return requests
+
+    def _server(self, seen, name, handle):
+        """A local server whose every request records the bypass header it carried."""
+        import http.server
+        import threading
+
+        class H(http.server.BaseHTTPRequestHandler):
+            def do_GET(self):
+                seen.setdefault(name, []).append(self.headers.get("x-vercel-protection-bypass"))
+                handle(self)
+
+            def log_message(self, *a):
+                pass
+        srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), H)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        self.addCleanup(srv.server_close)
+        self.addCleanup(srv.shutdown)
+        return "http://127.0.0.1:%d" % srv.server_address[1]
+
+    @staticmethod
+    def _send(h, status, body=b"", headers=()):
+        h.send_response(status)
+        for k, v in headers:
+            h.send_header(k, v)
+        h.send_header("Content-Length", str(len(body)))
+        h.end_headers()
+        h.wfile.write(body)
+
     def test_the_header_never_follows_a_redirect_to_another_host(self):
         """SECURITY: requests keeps custom headers on a redirect to another host, so a
         preview page that redirected off-site (a fork PR's _redirects rule, say) handed the
         bypass token to that host. Here every path but / on the crawled origin redirects to
         a second server, which must never see the header: not from the walk, not from the
         sitemap or robots.txt fetch, not from the soft-404 probe."""
-        try:
-            import requests  # noqa: F401
-        except ImportError:
-            raise unittest.SkipTest("requests not installed (http mode is optional)")
-        import http.server
-        import threading
-        seen = {"home": [], "other": []}
-
-        def server(name, handle):
-            class H(http.server.BaseHTTPRequestHandler):
-                def do_GET(self):
-                    seen[name].append(self.headers.get("x-vercel-protection-bypass"))
-                    handle(self)
-
-                def log_message(self, *a):
-                    pass
-            srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), H)
-            threading.Thread(target=srv.serve_forever, daemon=True).start()
-            self.addCleanup(srv.server_close)
-            self.addCleanup(srv.shutdown)
-            return "http://127.0.0.1:%d" % srv.server_address[1]
-
-        def send(h, status, body=b"", headers=()):
-            h.send_response(status)
-            for k, v in headers:
-                h.send_header(k, v)
-            h.send_header("Content-Length", str(len(body)))
-            h.end_headers()
-            h.wfile.write(body)
-
-        other = server("other", lambda h: send(h, 200, page_html().encode(), [("Content-Type", "text/html")]))
+        self._requests()
+        seen, send, html = {}, self._send, [("Content-Type", "text/html")]
+        other = self._server(seen, "other", lambda h: send(h, 200, page_html().encode(), html))
         home_page = page_html(body='<h1>H</h1><p><a href="/away/">away</a> ' + "word " * 300 + "</p>").encode()
-        home = server("home", lambda h: send(h, 200, home_page, [("Content-Type", "text/html")])
-                      if h.path == "/" else send(h, 302, headers=[("Location", other + h.path)]))
+        home = self._server(seen, "home", lambda h: send(h, 200, home_page, html)
+                            if h.path == "/" else send(h, 302, headers=[("Location", other + h.path)]))
 
         def run():
             crawl.crawl_http(home + "/")
             crawl.probe_soft404(home + "/")
         self._with_header(run)
         self.assertIn("s3cret", seen["home"], "the crawled origin must still get the header")
-        self.assertTrue(seen["other"], "the fixture's redirects were never followed")
+        self.assertTrue(seen.get("other"), "the fixture's redirects were never followed")
         self.assertEqual(set(seen["other"]), {None}, "the bypass header reached another host")
 
+    def test_a_redirect_within_the_site_keeps_the_header(self):
+        """The other half: a protected preview redirects /docs to /docs/ (Vercel and
+        Netlify both add the slash), and the page behind it answers only with the header.
+        Stripping it on that hop would leave every such page out of the crawl."""
+        self._requests()
+        seen, send, html = {}, self._send, [("Content-Type", "text/html")]
+        home_page = page_html(body='<h1>H</h1><p><a href="/docs">docs</a> ' + "word " * 300 + "</p>").encode()
+        docs = page_html(title="The Documentation Page Of This Site").encode()
+
+        def handle(h):
+            ok = h.headers.get("x-vercel-protection-bypass") == "s3cret"
+            if h.path == "/docs":
+                send(h, 302, headers=[("Location", "/docs/")])
+            elif not ok:
+                send(h, 401, b"nope", html)
+            else:
+                send(h, 200, {"/": home_page, "/docs/": docs}.get(h.path, b"missing"), html)
+        home = self._server(seen, "home", handle)
+        pages = []
+        self._with_header(lambda: pages.extend(p["url"] for p in crawl.crawl_http(home + "/")[0]))
+        self.assertIn("/docs/", pages)
+
+    def test_the_site_is_requests_own_rule_for_authorization(self):
+        """http -> https on the same host (a start URL that lands on https) and an explicit
+        default port are the same site and keep the header; another host or port does not,
+        and a redirect chain that leaves and comes back gets it again on the way back."""
+        requests = self._requests()
+
+        def sent(trusted, url):
+            sess = crawl.http_session(trusted)
+            return sess.prepare_request(requests.Request("GET", url)).headers.get(
+                "x-vercel-protection-bypass")
+        cases = [("http://site.test/", "https://site.test/docs/", "s3cret"),
+                 ("https://site.test/", "https://site.test:443/docs/", "s3cret"),
+                 ("http://site.test/", "http://site.test:80/", "s3cret"),
+                 ("https://site.test/", "https://www.site.test/", None),
+                 ("https://site.test/", "https://site.test:8443/", None),
+                 ("https://site.test/", "https://evil.test/", None)]
+        got = []
+        self._with_header(lambda: got.extend(sent(t, u) for t, u, _ in cases))
+        self.assertEqual(got, [want for _, _, want in cases])
+
+        def hops():
+            sess = crawl.http_session("https://site.test/")
+            prep = sess.prepare_request(requests.Request("GET", "https://site.test/a"))
+            out = []
+            for url in ("https://evil.test/b", "https://site.test/c"):
+                resp = requests.Response()
+                resp.request = prep.copy()
+                prep.url = url
+                sess.rebuild_auth(prep, resp)
+                out.append(prep.headers.get("x-vercel-protection-bypass"))
+            return out
+        chain = []
+        self._with_header(lambda: chain.extend(hops()))
+        self.assertEqual(chain, [None, "s3cret"])
 
 class TestGithubAction(unittest.TestCase):
     """action.yml is the product's front door. CI's `action` job runs it for real on every
