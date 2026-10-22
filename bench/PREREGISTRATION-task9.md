@@ -6,13 +6,11 @@ window opens, and the decision rules in section 6 are applied to the results **e
 written**. A change after data exists is a dated, signed addendum at the end of this
 file, and the report states it.
 
-Fields marked `____` are for B to fill in. Where Claude proposed a value, it is shown
-next to the field as "suggested", for reference only; the accepted value is the one that
-counts.
-
-**Status:** draft, written by Claude on 2026-10-22 from `bench/PREREGISTRATION.md`
-(sections 1 to 6, Addenda 1 to 10) and `docs/benchmark-1.9.0-replay.md`. Not signed. No
-part of Task 9 runs on a real repository until this file is merged.
+**Status:** signed by SurendharVr on 2026-10-22. Written by Claude on 2026-10-22 from
+`bench/PREREGISTRATION.md` (sections 1 to 6, Addenda 1 to 10) and
+`docs/benchmark-1.9.0-replay.md`. Every value B fills in below was proposed by Claude and
+accepted as written. No part of Task 9 runs on a real repository until this file is
+merged.
 
 **Why this run.** The replay result on 1.9.0 (precision 82 of 86, frequency 21 of 556,
 seeded recall 66 of 67) was measured on the sample every 1.8.0 and 1.9.0 fix came from,
@@ -49,7 +47,7 @@ A repository is excluded if it is any of:
 ### 2.2 Frame and draw
 
 - **Frame:** Addendum 5's saved frame, `bench/sample/frame-<stack>.json`, with no new
-  search: ____ (suggested: reuse it, so the draw needs no new judgement).
+  search, so the draw needs no new judgement.
 - **Order:** each stack's saved draw order, `bench/sample/order-<stack>.json`, continued
   after the last repository the sample and the sweep looked at. Same seed (`20261017`),
   so nothing is shuffled again.
@@ -61,18 +59,17 @@ A repository is excluded if it is any of:
   - a GitHub homepage that serves the built site: it answers 200 over https and its
     home page has the same `<title>` as the build's home page. This is the production
     URL for url mode (3.3) and for the post-merge check (3.4);
-  - at least ____ pull requests merged into the default branch in the 8 weeks before the
-    draw date (suggested: 8, about one a week, so the window has PRs to gate);
+  - at least 8 pull requests merged into the default branch in the 8 weeks before the
+    draw date, about one a week, so the window has PRs to gate;
   - builds by Addendum 5, rule 5 (with Addendum 6's Node rule) at the default branch's
     head on the Ubuntu runner, and the output holds HTML pages (Addendum 7).
 - **Preview flag,** recorded but not required: whether a public deploy preview (Netlify,
   Vercel, Cloudflare Pages or similar) was posted, as a commit status or bot comment, on
   at least one of those merged PRs. It decides which PRs get the url-mode check (3.3).
-- **Size:** the first ____ eligible repositories per stack (suggested: 6, so 30 in all).
-  If fewer than ____ of the 30 have the preview flag (suggested: 10), the draw continues
-  in order, taking only flagged repositories, until that many are flagged or ____
-  repositories in all are taken (suggested: 40).
-- **Draw date (UTC):** ____ (suggested: the day this file is merged).
+- **Size:** the first 6 eligible repositories per stack, so 30 in all. If fewer than 10
+  of the 30 have the preview flag, the draw continues in order, taking only flagged
+  repositories, until 10 are flagged or 40 repositories in all are taken.
+- **Draw date (UTC):** the day this file is merged, 2026-10-22.
 
 The draw is run once and committed (`bench/task9/repos.json`, `draw.csv`) before the
 window opens. A repository that later archives itself, goes private or stops building on
@@ -83,19 +80,19 @@ every PR stays in the sample, and its PRs count as skipped (3.5).
 This is a shadow run: sitemend runs on B's own runner against each PR's public code and
 public preview. It posts no comment, opens no issue and sends no message to any drawn
 repository during the window, so maintainers cannot change what they do because of it.
-Whether true regressions are reported to maintainers after the report is published:
-____ (suggested: yes, one issue per site, only after the report, and only for
-`true_regression` findings still present on production).
+True regressions are reported to maintainers after the report is published: one issue
+per site, only after the report, and only for `true_regression` findings still present
+on production.
 
 ## 3. Pull requests in the window
 
 ### 3.1 Window
 
-- Opens (UTC): ____ (suggested: 00:00 on the day after the draw is committed).
-- Length: ____ (suggested: 8 weeks).
+- Opens (UTC): 00:00 on the day after the draw is committed.
+- Length: 8 weeks.
 - Extension: if fewer than 20 blocking findings exist in the measure precision uses
-  (section 5) when the window closes, it is extended ____ at a time (suggested: 4 weeks),
-  up to ____ in all (suggested: 16 weeks). Findings are counted, not verdicts, so a
+  (section 5) when the window closes, it is extended 4 weeks at a time, up to 16 weeks
+  in all. Findings are counted, not verdicts, so a
   verdict still due (4.3) does not trigger an extension. Precision is computed once every
   finding has its verdict. If 20 are never reached, precision counts as not met (as in
   section 4 of the main pre-registration).
@@ -115,7 +112,7 @@ counts: that is the per-PR gate a maintainer would run.
 
 ### 3.3 What is checked
 
-The harness polls every drawn repository every ____ (suggested: 15 minutes). Each new
+The harness polls every drawn repository every 15 minutes. Each new
 head commit of a counted PR is checked when it is first seen, and in url mode as soon as
 its preview reports a successful deploy, so the check runs while the preview is up.
 
@@ -145,7 +142,7 @@ build runs without the host's deploy variables.
 
 - Production is audited (`sitemend check <production>`, `max-pages` 200) at window open,
   and again after each merge into the default branch, once production has changed or
-  ____ after the merge (suggested: 2 hours), whichever comes first. Each audit is
+  2 hours after the merge, whichever comes first. Each audit is
   compared with the one before it.
 - A new critical or high finding is attributed to the PRs merged between the two audits.
   B judges it like a gate finding (4.3), in a separate ledger,
@@ -162,8 +159,8 @@ As in the main pre-registration, none of these count toward frequency or precisi
 - `build_failed`: the head or base build fails in folder mode;
 - `preview_unavailable`: the preview is missing, private or unreachable in url mode
   (the PR's folder-mode check still counts);
-- tool failures (Addendum 1): sitemend crashes, or an audit does not finish within ____
-  (suggested: 60 minutes). Reported per repository with the reason, as a reliability
+- tool failures (Addendum 1): sitemend crashes, or an audit does not finish within 60
+  minutes. Reported per repository with the reason, as a reliability
   finding.
 
 ## 4. Verdicts
@@ -192,8 +189,8 @@ The values used in `bench/ledger.csv`:
 | `false_positive` | the PR did not introduce it, or it is not a problem | false |
 | `unclear` | nobody can confirm it either way | false, as in section 4 of the main pre-registration |
 
-`true_but_preexisting` (used once in `bench/ledger-1.8.0.csv`): allowed here? ____
-(suggested: yes, counted as false, since the gate blamed this PR for it). In url mode it
+`true_but_preexisting` (used once in `bench/ledger-1.8.0.csv`) is allowed here, counted
+as false, since the gate blamed this PR for it. In url mode it
 is the expected verdict when production lags the PR's base branch.
 
 ### 4.3 How a verdict is given
@@ -202,34 +199,31 @@ is the expected verdict when production lags the PR's base branch.
   head and base commits (`build HTML at the commit`); the preview deploy at the head
   commit (`preview deploy at the head`); production after the PR was merged and deployed
   (`live site check`).
-- **Timing:** a finding is judged within ____ of its PR being checked (suggested: 7
-  days), while its preview is still up. A preview that is gone before a verdict leaves
+- **Timing:** a finding is judged within 7 days of its PR being checked, while its preview is still up. A preview that is gone before a verdict leaves
   the built HTML as the evidence.
 - **What happened next** is recorded in `notes`, not used as the verdict: merged or
   closed, and whether a later PR in the window fixed the problem.
 - **Claude's readings.** Claude may draft a reading of a finding; it is marked
   `reading drafted by Claude` in `notes`, and B accepts or changes it. The report counts
   how many verdicts started as Claude's readings.
-- **Second look:** ____ (suggested: B re-judges a random 20% of findings, drawn with
-  `random.Random(20261017)` after the window closes, without seeing the first verdict;
-  disagreements are reported, and the first verdict stands).
+- **Second look:** B re-judges a random 20% of findings, drawn with
+  `random.Random(20261017)` after the window closes, without seeing the first verdict.
+  Disagreements are reported, and the first verdict stands.
 - No verdict changes after the window closes, except by addendum.
 
 ## 5. Thresholds
 
 | Measure | Unit | Main pre-registration | Task 9 value |
 |---|---|---|---|
-| Blocking precision | per blocking finding: `true_regression` / all blocking findings with a verdict | at least 95%, with at least 20 verdicts | ____ (suggested: at least 95% with at least 20, folder mode only; url mode reported apart, see below) |
-| Frequency | per PR: PRs with at least one `true_regression` blocking finding / PRs compared | at least 1 per 100 commits | ____ (suggested: at least 1 per 100 PRs compared, in the same mode as precision) |
-| Tool failures | per PR: PRs with a tool failure / PRs counted | not a threshold | ____ (suggested: at most 5%) |
+| Blocking precision | per blocking finding: `true_regression` / all blocking findings with a verdict | at least 95%, with at least 20 verdicts | at least 95% with at least 20, folder mode only; url mode reported apart, see below |
+| Frequency | per PR: PRs with at least one `true_regression` blocking finding / PRs compared | at least 1 per 100 commits | at least 1 per 100 PRs compared, in the same mode as precision |
+| Tool failures | per PR: PRs with a tool failure / PRs counted | not a threshold | at most 5% |
 
-**Which mode the thresholds use:** ____ (suggested: folder mode only). In url mode the
+**Which mode the thresholds use:** folder mode only. In url mode the
 baseline is production, not the PR's base commit, so a gap between the two shows up as a
 finding the PR did not cause, and would count against precision because of how the run
 is set up rather than how the rules behave. Folder mode compares the PR with its own
-base, as replay did. If B chooses both modes pooled instead, a PR counts toward
-frequency when it has a `true_regression` blocking finding in either mode, and a finding
-in both modes is one finding (4.1).
+base, as replay did.
 
 Reported, not thresholds:
 
@@ -255,8 +249,7 @@ Seeded recall is not re-run here; the 1.9.0 seeded result stands.
 Applied to the window's results as written, with the outcome at the top of the report.
 
 - **Precision, frequency and tool failures all met:** reopen outreach for the
-  release-gate positioning (Phase 4). ____ (suggested: yes, this is the only result that
-  reopens it.)
+  release-gate positioning (Phase 4). This is the only result that reopens it.
 - **Precision fails:** outreach stays stopped, and the rules are fixed under the
   stability policy in `RELEASING.md`; every confirmed false positive becomes a permanent
   test. The next prospective run uses a fresh draw (the next repositories in draw order
@@ -266,8 +259,8 @@ Applied to the window's results as written, with the outcome at the top of the r
 - **Tool failures above the threshold:** outreach stays stopped until the failures are
   fixed and re-measured on a fresh draw, even if precision and frequency pass.
 - **Preview-host leaks and soft 404s:** whatever the rest shows, no public material
-  claims sitemend catches a type on real pull requests unless this run has at least ____
-  `true_regression` blocking finding of that type from the gate (suggested: 1). A type
+  claims sitemend catches a type on real pull requests unless this run has at least 1
+  `true_regression` blocking finding of that type from the gate. A type
   found only by the post-merge production check (3.4) may be described as found in
   production audits, not as caught on pull requests. With neither, the material says
   the type is tested by seeded mutation only.
@@ -319,7 +312,8 @@ Applied to the window's results as written, with the outcome at the top of the r
 
 ## Sign-off
 
-- Filled in and approved by (B): ____
-- Date: ____
+- Filled in and approved by (B): SurendharVr
+- Date: 2026-10-22
 - Merged before the draw and before any prospective run on real data (commit SHA of the
-  merge): ____
+  merge): recorded in a follow-up commit once merged, as for the main pre-registration
+  (#49).
