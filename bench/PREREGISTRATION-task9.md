@@ -316,3 +316,44 @@ Applied to the window's results as written, with the outcome at the top of the r
 - Date: 2026-10-22
 - Merged before the draw and before any prospective run on real data (commit SHA of the
   merge): `9e34e2152e71857e5af430e208d5a1792e3c4798` (#90)
+
+## Addendum 1: frozen on 1.9.1 (2026-10-22, before the draw)
+
+**Why.** 1.9.1 is a patch release of four security fixes (#93, #94), made after this file
+was signed. Task 9 crawls public previews that the authors of the pull requests control,
+so the hardening protects the run's own runner and data. None of it changes a rule,
+threshold or severity:
+- `http-headers` go only to the host of the URL passed. Task 9 sends no secret header
+  (3.3), so its crawls are unaffected.
+- `<loc>`, `<lastmod>` and `<url>` values stop at the next tag. A sitemap of unclosed tags
+  can no longer hold an audit for hours, which would have been a tool failure (3.5).
+  Well-formed sitemaps parse as before.
+- The PR comment quotes site text as code spans. Task 9 posts no comment (2.3).
+- The Action's checkouts no longer keep the token on disk. Task 9 runs its own harness.
+
+**1. Frozen version (supersedes section 1).**
+
+- Package: `sitemend==1.9.1`
+- Tag: `v1.9.1`
+- Commit: `ad61ab753317ff5bfb82a0f163ca2f4fe439a5bb`
+
+The harness pins it. No rule, threshold or severity changes until this run's report is
+published; a bug found from here on is logged and gets an issue.
+
+**2. Checked before this addendum.** The repository's own fixtures were audited with both
+versions: `examples/demo-site` gave the same 24 findings on 1.9.0 and 1.9.1, and
+`examples/demo-site-intl` the same 11 (same rule, severity, pages and evidence). No drawn
+or benchmark repository was used.
+
+**3. Unchanged:** everything else in this file, including the draw (section 2), the window
+(section 3), verdicts (section 4), thresholds (section 5) and decision rules (section 6).
+The replay and seeded benchmark workflows stay on `sitemend==1.9.0`, the version the
+published replay report measured.
+
+**4. Limitation, stated in the report.** The replay result that made Task 9 eligible was
+measured on 1.9.0. 1.9.1 differs only by the fixes above. On well-formed sitemaps and
+without `http-headers`, it emits the same findings, so the replay result carries over.
+Where a site's sitemap is malformed, the two versions can read it differently. The report
+states how many drawn sites that applies to.
+
+Decided by (B): SurendharVr. Date: 2026-10-22.
