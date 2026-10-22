@@ -1,7 +1,28 @@
 # Changelog
 
-## Unreleased
+## 1.9.1 - 2026-10-22
 
+The example workflows and README pin `@v1.9.1`. A patch release of security fixes. Three
+of them leave every finding as it was. One can change findings in a single case, stated
+here as the stability policy asks:
+- **A protected site served from another host than the one passed.** When the URL given
+  to `sitemend check` (the Action's `url` or `baseline-url`) redirects to a different
+  host, apex to www included, that host no longer receives the `http-headers` secrets.
+  If it needs them, it now answers without them (a 401 or a login page), so its crawl,
+  and every finding built on it, can differ from 1.9.0. That is the leak being closed,
+  not a rule change. Pass the URL the site is served from to keep the 1.9.0 result.
+
+No rule, threshold or severity changes. The benchmark workflows stay on 1.9.0, the
+version the published replay report measured and Task 9 is frozen on.
+
+- **Task 9 pre-registration (`bench/PREREGISTRATION-task9.md`), signed by SurendharVr on
+  2026-10-22 and merged in #90 (`9e34e21`).** The prospective run of `sitemend==1.9.0`
+  on real pull requests of 30 sites drawn from Addendum 5's frame, none of them a site
+  the rules were tuned on, over an 8-week window. Nothing has run on a real repository.
+- **Bench harness (#91).** The replay cache is keyed by the sitemend that made each audit,
+  so a re-run on another version never reuses an old audit, and `recall.md` also reports
+  what the gate did. 1.9.0's numbers are unchanged; the one pooled seeded miss was failed
+  by another rule.
 - **Security: three hardening fixes from the same review.**
   - **The Action's checkouts no longer keep the token on disk.** Both use
     `persist-credentials: false`, so the PR's build and the install scripts it runs cannot
@@ -23,8 +44,8 @@
   site, while another host (apex to www included) or port does not. The rule covers the
   crawl, the robots.txt and sitemap fetch, the soft-404 probe and every redirect hop. If
   you set `http-headers` on previews that fork PRs can change, consider rotating the
-  secret. Findings are unchanged unless a protected site is served from another host
-  than the one passed.
+  secret. This can change findings for a protected site served from another host than
+  the one passed (see above).
 - **The 1.9.0 benchmark: `docs/benchmark-1.9.0-replay.md`.** The same 600 commits
   replayed through 1.9.0 (Addendum 10), and all three pre-registered thresholds are met:
   - **Precision:** 82 of 86 (95.3%), with no margin; the 4 that do not count are
