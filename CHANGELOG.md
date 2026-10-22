@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- **Security: three hardening fixes from the same review.**
+  - **The Action's checkouts no longer keep the token on disk.** Both use
+    `persist-credentials: false`, so the PR's build and the install scripts it runs cannot
+    read the job's token from `.git/config`.
+  - **The PR comment lets no site text act as markup.** Evidence and page paths are
+    quoted as code spans; messages and waiver reasons are escaped, and an `@` is followed
+    by a word joiner, so text from the audited site (in the preview workflow, the PR's own
+    deploy) cannot @mention anyone or render as a link or image in the bot's comment.
+  - **Sitemap parsing is linear.** `<loc>`, `<lastmod>` and `<url>` values stop at the next
+    tag, so a sitemap of unclosed tags can no longer hold the audit for hours (48 KB took
+    10 s before). Well-formed sitemaps read exactly as before.
 - **Security: `http-headers` no longer follow a redirect to another host.** The headers
   from `SITEMEND_HTTP_HEADERS` (the Action's `http-headers` input, such as a Vercel
   protection-bypass secret) were set on every request, and `requests` keeps custom headers
