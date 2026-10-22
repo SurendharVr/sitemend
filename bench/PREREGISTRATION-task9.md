@@ -356,4 +356,4 @@ without `http-headers`, it emits the same findings, so the replay result carries
 Where a site's sitemap is malformed, the two versions can read it differently. The report
 states how many drawn sites that applies to.
 
-Decided by (B): ____. Date: ____.
+Decided by (B): SurendharVr. Date: 2026-10-22.
