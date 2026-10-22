@@ -135,7 +135,7 @@ from that:
 | **Structured data** | Required properties, if it checks at all | Required properties, and whether the markup claims things the page never shows, such as review authors |
 | **Applying fixes** | Suggestions | One approved batch at a time, then a re-crawl to confirm it worked. Nothing is edited without approval |
 | **In CI** | No | The example GitHub Action fails a PR only on findings it introduces, and comments the new and closed ones on the PR |
-| **Tested** | Not testable | 304 tests, many pinned to false positives found on real runs |
+| **Tested** | Not testable | 305 tests, many pinned to false positives found on real runs |
 
 **How big is the gap?** We measured it on the demo site (5 pages, 14 planted defects).
 Three plain "audit this site" runs by an AI agent with read-only file access found 14, 12
@@ -304,7 +304,9 @@ to. Vercel previews sit behind Deployment Protection by default: create a "Prote
 Bypass for Automation" secret in the Vercel project, store it as a GitHub secret, and the
 workflow sends it as the `x-vercel-protection-bypass` header. Headers come from the
 `SITEMEND_HTTP_HEADERS` environment variable, never the command line, so a secret stays out
-of process listings and reports.
+of process listings and reports. They are sent only to the origin of the URL you pass, and
+dropped on any redirect to another host, so a preview page that redirects off-site cannot
+hand the secret on.
 
 On another CI system, `sitemend check` does the same job:
 `sitemend check ./head/out --base ./base/out` for two builds, or
@@ -429,7 +431,7 @@ only requests your own site.
 python tests/test_skill.py
 ```
 
-304 tests (two are opt-in: real Lighthouse and real Chrome rendering), no fixture files — each builds a throwaway site in a temp directory. They pin
+305 tests (two are opt-in: real Lighthouse and real Chrome rendering), no fixture files — each builds a throwaway site in a temp directory. They pin
 down calibration decisions made after real false positives: build-directory exclusion,
 deliberate `noindex`, finding grouping, title thresholds, heading order, schema claim
 corroboration, gate boundaries. A failure means *"was this behaviour meant to change"*,

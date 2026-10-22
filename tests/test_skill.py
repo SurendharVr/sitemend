@@ -3473,15 +3473,67 @@ class TestExtraHeaders(unittest.TestCase):
         self.addCleanup(srv.shutdown)
         base = "http://127.0.0.1:%d/" % srv.server_address[1]
         self.assertEqual(crawl.crawl_http(base)[0], [])
+        self._with_header(lambda: self.assertEqual([p["url"] for p in crawl.crawl_http(base)[0]], ["/"]))
+
+    def _with_header(self, fn):
         old = os.environ.get("SITEMEND_HTTP_HEADERS")
         os.environ["SITEMEND_HTTP_HEADERS"] = "x-vercel-protection-bypass: s3cret"
         try:
-            self.assertEqual([p["url"] for p in crawl.crawl_http(base)[0]], ["/"])
+            fn()
         finally:
             if old is None:
                 os.environ.pop("SITEMEND_HTTP_HEADERS")
             else:
                 os.environ["SITEMEND_HTTP_HEADERS"] = old
+
+    def test_the_header_never_follows_a_redirect_to_another_host(self):
+        """SECURITY: requests keeps custom headers on a redirect to another host, so a
+        preview page that redirected off-site (a fork PR's _redirects rule, say) handed the
+        bypass token to that host. Here every path but / on the crawled origin redirects to
+        a second server, which must never see the header: not from the walk, not from the
+        sitemap or robots.txt fetch, not from the soft-404 probe."""
+        try:
+            import requests  # noqa: F401
+        except ImportError:
+            raise unittest.SkipTest("requests not installed (http mode is optional)")
+        import http.server
+        import threading
+        seen = {"home": [], "other": []}
+
+        def server(name, handle):
+            class H(http.server.BaseHTTPRequestHandler):
+                def do_GET(self):
+                    seen[name].append(self.headers.get("x-vercel-protection-bypass"))
+                    handle(self)
+
+                def log_message(self, *a):
+                    pass
+            srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), H)
+            threading.Thread(target=srv.serve_forever, daemon=True).start()
+            self.addCleanup(srv.server_close)
+            self.addCleanup(srv.shutdown)
+            return "http://127.0.0.1:%d" % srv.server_address[1]
+
+        def send(h, status, body=b"", headers=()):
+            h.send_response(status)
+            for k, v in headers:
+                h.send_header(k, v)
+            h.send_header("Content-Length", str(len(body)))
+            h.end_headers()
+            h.wfile.write(body)
+
+        other = server("other", lambda h: send(h, 200, page_html().encode(), [("Content-Type", "text/html")]))
+        home_page = page_html(body='<h1>H</h1><p><a href="/away/">away</a> ' + "word " * 300 + "</p>").encode()
+        home = server("home", lambda h: send(h, 200, home_page, [("Content-Type", "text/html")])
+                      if h.path == "/" else send(h, 302, headers=[("Location", other + h.path)]))
+
+        def run():
+            crawl.crawl_http(home + "/")
+            crawl.probe_soft404(home + "/")
+        self._with_header(run)
+        self.assertIn("s3cret", seen["home"], "the crawled origin must still get the header")
+        self.assertTrue(seen["other"], "the fixture's redirects were never followed")
+        self.assertEqual(set(seen["other"]), {None}, "the bypass header reached another host")
 
 
 class TestGithubAction(unittest.TestCase):

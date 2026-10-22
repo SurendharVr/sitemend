@@ -688,18 +688,53 @@ def extra_headers(env=None):
     return out
 
 
-def probe_soft404(start, timeout=20):
-    """Request one path that cannot exist. A site that answers it with 200 serves
-    "not found" as a real page, and every mistyped or deleted URL becomes an indexable
-    duplicate of the error page."""
+def _origin(url):
+    p = urlsplit(url)
+    return (p.scheme.lower(), (p.netloc or "").lower())
+
+
+def http_session(trusted):
+    """A requests session that sends the SITEMEND_HTTP_HEADERS headers only to the origin
+    of trusted, the URL the user asked to crawl. Those headers are secrets (a Vercel
+    bypass token, basic auth), and requests keeps custom headers on a redirect to another
+    host: a page of the preview that redirected off-site would have handed the token to
+    whoever runs that host. So they are left off any request, or redirect hop, whose
+    origin differs, including an apex -> www hop."""
     import requests
 
+    extra, home = extra_headers(), _origin(trusted)
+    sess = requests.Session()
+    sess.headers["User-Agent"] = "sitemend-crawler/1.0 (+local audit)"
+    sess.headers["Accept"] = BROWSER_ACCEPT
+    prepare, rebuild = sess.prepare_request, sess.rebuild_auth
+
+    def strip(prep):
+        if _origin(prep.url) != home:
+            for name in extra:
+                prep.headers.pop(name, None)
+
+    def prepare_request(request):
+        if _origin(request.url) == home:
+            request.headers = dict(extra, **(request.headers or {}))
+        return prepare(request)
+
+    def rebuild_auth(prep, response):      # called on every redirect hop
+        rebuild(prep, response)
+        strip(prep)
+
+    sess.prepare_request, sess.rebuild_auth = prepare_request, rebuild_auth
+    return sess
+
+
+def probe_soft404(start, timeout=20, trusted=None):
+    """Request one path that cannot exist. A site that answers it with 200 serves
+    "not found" as a real page, and every mistyped or deleted URL becomes an indexable
+    duplicate of the error page. trusted: the URL whose origin may get the extra headers
+    (default start)."""
     origin = "{0}://{1}".format(*urlsplit(start)[:2])
     path = "/sitemend-404-probe-" + secrets.token_hex(6)
     try:
-        r = requests.get(origin + path, timeout=timeout, allow_redirects=True,
-                         headers=dict({"User-Agent": "sitemend-crawler/1.0 (+local audit)",
-                                       "Accept": BROWSER_ACCEPT}, **extra_headers()))
+        r = http_session(trusted or start).get(origin + path, timeout=timeout, allow_redirects=True)
     except Exception as e:
         return {"path": path, "status": None, "error": str(e)[:200]}
     return {"path": path, "status": r.status_code, "final_url": r.url,
@@ -716,8 +751,6 @@ def crawl_http(start, max_pages=300, timeout=20, render=False, render_limit=50):
     ponytail: one Chrome launch per page (~5 s); a persistent DevTools session if big
     sites need rendering past the limit.
     """
-    import requests
-
     chrome = None
     if render:
         chrome = S.find_chrome()
@@ -725,10 +758,7 @@ def crawl_http(start, max_pages=300, timeout=20, render=False, render_limit=50):
             sys.exit("--render needs Chrome, Chromium or Edge (set CHROME_PATH to point at one)")
     rendered = 0
 
-    sess = requests.Session()
-    sess.headers["User-Agent"] = "sitemend-crawler/1.0 (+local audit)"
-    sess.headers["Accept"] = BROWSER_ACCEPT
-    sess.headers.update(extra_headers())
+    sess = http_session(start)
     # Crawl the origin the start URL lands on. apex -> www and http -> https are how a
     # site is served, not off-site links: taking the typed origin skipped every page as
     # "redirects off-site" and the crawl came back empty.
@@ -937,7 +967,7 @@ def main():
         print("ERROR: crawled 0 pages from {0} ({1}). Nothing to audit.".format(source, reason),
               file=sys.stderr)
         return 1
-    soft404 = probe_soft404(pages[0]["final_url"]) if args.mode == "http" else None
+    soft404 = probe_soft404(pages[0]["final_url"], trusted=args.start) if args.mode == "http" else None
     if args.mode == "http" and args.base_url and audit.same_origin(args.base_url, args.start):
         # A start URL that redirected is crawled where it landed (crawl_http), and a
         # --base-url that only repeats the typed origin (as sitemend.py passes) follows it.
