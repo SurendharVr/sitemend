@@ -100,14 +100,21 @@ def build(entry, path, sha, log_path, env, timeout):
     return (site if ok and os.path.isdir(site) else None), round(time.monotonic() - start, 1)
 
 
-def audit(py, scripts, site, outdir, env):
-    """sitemend audit of a built folder into outdir; returns (ok, seconds). Output in audit.log."""
+def audit(py, scripts, site, outdir, env, timeout=None):
+    """sitemend audit of a built folder (or a URL) into outdir; returns (ok, seconds).
+    Output in audit.log. An audit that runs past timeout seconds is not ok."""
     start = time.monotonic()
-    r = subprocess.run([py, os.path.join(scripts, "sitemend.py"), "audit", site, "--out", outdir],
-                       capture_output=True, text=True, encoding="utf-8", errors="replace", env=env)
+    os.makedirs(outdir, exist_ok=True)
+    try:
+        r = subprocess.run([py, os.path.join(scripts, "sitemend.py"), "audit", site, "--out", outdir],
+                           capture_output=True, text=True, encoding="utf-8", errors="replace",
+                           env=env, timeout=timeout)
+        text, ok = r.stdout + r.stderr, r.returncode == 0
+    except subprocess.TimeoutExpired:
+        text, ok = "[replay] audit did not finish within {0} s\n".format(timeout), False
     with open(os.path.join(outdir, "audit.log"), "w", encoding="utf-8") as log:
-        log.write(r.stdout + r.stderr)
-    return r.returncode == 0, round(time.monotonic() - start, 1)
+        log.write(text)
+    return ok, round(time.monotonic() - start, 1)
 
 
 def sitemend_id(scripts):

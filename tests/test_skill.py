@@ -11,6 +11,7 @@ Fixtures are generated into a temp directory, so there are no fixture files to d
 Run:  python tests/test_skill.py            (from the skill root)
       python -m unittest discover -s tests  (equivalent)
 """
+import argparse
 import json
 import os
 import shutil
@@ -4152,6 +4153,302 @@ class TestSeededRecall(unittest.TestCase):
         seeded.title_duplicated(self.d, crawl)
         with open(os.path.join(self.d, "b", "index.html"), encoding="utf-8") as fh:
             self.assertIn("<title>Alpha</title>", fh.read())     # a new pair, Alpha + Alpha
+
+
+class TestTask9(unittest.TestCase):
+    """bench/task9/task9.py, the prospective run (bench/PREREGISTRATION-task9.md). Every test
+    runs on fixtures: a fake GitHub API, throwaway git repositories and local servers. No
+    test reaches GitHub or a drawn site."""
+
+    T0 = "2026-10-24T00:00:00Z"
+
+    def setUp(self):
+        self.t9 = _bench_module("task9", "task9.py")
+        if self.t9 is None:
+            raise unittest.SkipTest("bench/ is not shipped in the sdist")
+        self.d = tempfile.mkdtemp(prefix="sitemend-task9-")
+        self.addCleanup(shutil.rmtree, self.d, True)
+
+    def at(self, minutes=0, days=0):
+        import datetime
+        return self.t9.parse_time(self.T0) + datetime.timedelta(minutes=minutes, days=days)
+
+    # ------------------------------------------------------------ the draw
+
+    def test_select_takes_six_per_stack_then_tops_up_previews(self):
+        """2.2: the first 6 per stack that built; with fewer than 10 flagged, the next
+        flagged ones that built, one stack at a time, until 10 are flagged or 40 taken."""
+        stacks = [s for s, _, _, _ in self.t9.sample.STACKS]
+        cands, built = [], {}
+        for s in stacks:
+            for rank in range(1, 11):
+                repo = "{0}/r{1}".format(s, rank)
+                flagged = (s == "astro" and rank == 2) or rank in (8, 9, 10)
+                cands.append({"repo": repo, "stack": s, "rank": rank, "preview": "https://p" if flagged else ""})
+                built[repo] = "build_failed" if rank == 1 else "ok"
+        taken, short = self.t9.select(cands, built)
+        first = [c["repo"] for c in taken[:30]]
+        self.assertEqual(first[:6], ["docusaurus/r{0}".format(i) for i in range(2, 8)])
+        self.assertEqual(short, [])
+        # 1 flagged among the first 30 (astro/r2); 9 more come from rank 8 on, round-robin.
+        self.assertEqual([c["repo"] for c in taken[30:]],
+                         ["docusaurus/r8", "astro/r8", "vitepress/r8", "hugo/r8", "nextjs/r8",
+                          "docusaurus/r9", "astro/r9", "vitepress/r9", "hugo/r9"])
+        self.assertEqual(sum(bool(c["preview"]) for c in taken), 10)
+
+    def test_a_preview_is_found_by_deployment_status_or_bot_comment(self):
+        repo, sha = "o/r", "a" * 40
+        api = {"repos/o/r/deployments?sha={0}&per_page=20".format(sha): [
+                   {"id": 1, "environment": "Production"}, {"id": 2, "environment": "Preview"}],
+               "repos/o/r/deployments/1/statuses?per_page=20": [{"state": "success", "environment_url": "https://prod"}],
+               "repos/o/r/deployments/2/statuses?per_page=20": [{"state": "success", "environment_url": "https://pr-2.vercel.app"}]}
+        self.assertEqual(self.t9.preview_url(api.get, repo, sha), "https://pr-2.vercel.app")
+        comment = {"user": {"type": "Bot"}, "body": "Deploy preview for aaaaaaa ready: https://deploy-preview-7--x.netlify.app)"}
+        api2 = {"repos/o/r/issues/7/comments?per_page=100": [comment]}
+        self.assertEqual(self.t9.preview_url(api2.get, repo, sha, 7), "https://deploy-preview-7--x.netlify.app")
+        # A bot comment about another commit, or from a person, does not count.
+        self.assertIsNone(self.t9.preview_url(api2.get, repo, "b" * 40, 7))
+        api2["repos/o/r/issues/7/comments?per_page=100"] = [dict(comment, user={"type": "User"})]
+        self.assertIsNone(self.t9.preview_url(api2.get, repo, sha, 7))
+
+    # ------------------------------------------------------------ the window
+
+    def _pr(self, n, head, created, state="open", draft=False, merged_at=None, bot=False):
+        return {"number": n, "created_at": created, "state": state, "draft": draft, "merged_at": merged_at,
+                "closed_at": merged_at, "user": {"type": "Bot" if bot else "User"},
+                "head": {"sha": head}, "base": {"sha": "b" * 40}}
+
+    def _api(self, pulls, commits=(), previews=()):
+        def get(path):
+            if path.startswith("repos/o/r/pulls?"):
+                return pulls if "page=1" in path else []
+            if path.startswith("repos/o/r/commits?"):
+                return list(commits)
+            if "/statuses?" in path and "/commits/" in path:
+                sha = path.split("/commits/")[1].split("/")[0]
+                return [{"state": "success", "context": "netlify/x/deploy-preview",
+                         "target_url": "https://deploy-preview--x.netlify.app"}] if sha in previews else []
+            return []
+        return get
+
+    def test_plan_checks_each_new_head_and_counts_only_the_last(self):
+        t9 = self.t9
+        repos = [{"repo": "o/r", "default_branch": "main", "homepage": "https://o.test", "node_version": "24"}]
+        opens, ends = self.at(), self.at(days=56)
+        h1, h2 = "1" * 40, "2" * 40
+        pulls = [self._pr(5, h1, "2026-10-25T10:00:00Z"),
+                 self._pr(6, "6" * 40, "2026-10-25T11:00:00Z", draft=True),
+                 self._pr(4, "4" * 40, "2026-10-20T00:00:00Z")]       # opened before the window
+        commits = [{"sha": "c" * 40, "commit": {"committer": {"date": "2026-10-25T09:00:00Z"}}}]
+        state, jobs = t9.plan({}, repos, opens, ends, self.at(days=1, minutes=600),
+                              get=self._api(pulls, commits), hash_home=lambda u: "h")
+        self.assertEqual(sorted((j["kind"], j.get("pr")) for j in jobs), [("folder", 5), ("production", None)])
+        self.assertNotIn("o/r#4", state["prs"])
+        self.assertNotIn("folder", [j["kind"] for j in jobs if j.get("pr") == 6], "a draft is not checked")
+        # collect records the folder result; a new head arrives with a preview; then the PR closes.
+        state["prs"]["o/r#5"]["heads"][h1]["folder"] = "pass"
+        state["production"]["o/r"] = {"audited_at": "2026-10-25T10:00:00Z", "home_hash": "h", "findings": "x"}
+        pulls[0] = self._pr(5, h2, "2026-10-25T10:00:00Z")
+        state, jobs = t9.plan(state, repos, opens, ends, self.at(days=1, minutes=615),
+                              get=self._api(pulls, previews=(h2,)), hash_home=lambda u: "h")
+        self.assertEqual(sorted(j["kind"] for j in jobs if j.get("pr") == 5), ["folder", "url"])
+        pulls[0] = self._pr(5, h2, "2026-10-25T10:00:00Z", state="closed", merged_at="2026-10-25T12:00:00Z")
+        merge = [{"sha": "d" * 40, "commit": {"committer": {"date": "2026-10-25T12:00:00Z"}}}]
+        state, jobs = t9.plan(state, repos, opens, ends, self.at(days=1, minutes=630),
+                              get=self._api(pulls, merge, previews=(h2,)), hash_home=lambda u: "h")
+        self.assertEqual(state["prs"]["o/r#5"]["final_head"], h2)
+        # The merge is 30 minutes old and the home page has not changed: no production audit yet.
+        self.assertNotIn("production", [j["kind"] for j in jobs])
+        _, jobs = t9.plan(state, repos, opens, ends, self.at(days=1, minutes=630),
+                          get=self._api(pulls, merge, previews=(h2,)), hash_home=lambda u: "changed")
+        self.assertIn("production", [j["kind"] for j in jobs])
+        # A job that never reports back is tried 3 times, then counts as a tool failure.
+        for _ in range(3):
+            state, _ = t9.plan(state, repos, opens, ends, self.at(days=1, minutes=640),
+                               get=self._api(pulls, previews=(h2,)), hash_home=lambda u: "h")
+        self.assertEqual(state["prs"]["o/r#5"]["heads"][h2]["folder"], "tool_failure")
+
+    def test_a_final_head_with_no_preview_is_preview_unavailable(self):
+        t9 = self.t9
+        repos = [{"repo": "o/r", "default_branch": "main", "homepage": "https://o.test"}]
+        pulls = [self._pr(9, "9" * 40, "2026-10-25T10:00:00Z", state="closed", merged_at="2026-10-25T11:00:00Z")]
+        state, jobs = t9.plan({}, repos, self.at(), self.at(days=56), self.at(days=2),
+                              get=self._api(pulls), hash_home=lambda u: "h")
+        self.assertEqual(state["prs"]["o/r#9"]["heads"]["9" * 40]["url"], "preview_unavailable")
+        self.assertEqual([j["kind"] for j in jobs if j.get("pr") == 9], ["folder"])
+
+    # ------------------------------------------------------------ results, ledger, report
+
+    def test_collect_ledger_and_report(self):
+        t9, data = self.t9, os.path.join(self.d, "data")
+        h = "f" * 40
+        state = {"prs": {"o/r#1": {"repo": "o/r", "number": 1, "bot": False, "merged_at": "2026-10-25T12:00:00Z",
+                                   "final_head": h, "heads": {h: {"folder": None, "url": None}}}},
+                 "production": {}}
+        broken = {"id": "S1-BROKEN-LINK", "severity": "high", "pages": ["/"], "evidence": "href=/gone",
+                  "message": "m", "confidence": "high"}
+        leak = {"id": "S1-HOST-MISMATCH", "severity": "critical", "pages": ["/"], "evidence": "x.vercel.app",
+                "message": "m", "confidence": "high"}
+        job = {"repo": "o/r", "pr": 1, "head": h, "base": "b" * 40}
+        results = [{"job": dict(job, kind="folder"), "outcome": "fail", "reason": "", "regressions": [broken],
+                    "advisory": [], "checked_at": "2026-10-25T12:01:00Z"},
+                   {"job": dict(job, kind="url"), "outcome": "fail", "reason": "", "regressions": [broken],
+                    "advisory": [], "checked_at": "2026-10-25T12:02:00Z"},
+                   {"job": {"repo": "o/r", "kind": "production", "url": "https://o.test", "branch_sha": "c" * 40},
+                    "outcome": "first", "reason": "", "regressions": [], "findings": [], "home_hash": "h",
+                    "checked_at": "2026-10-25T11:00:00Z"},
+                   {"job": {"repo": "o/r", "kind": "production", "url": "https://o.test", "branch_sha": "d" * 40},
+                    "outcome": "compared", "reason": "", "regressions": [leak], "findings": [leak], "home_hash": "h2",
+                    "checked_at": "2026-10-25T14:00:00Z"}]
+        state = t9.collect(state, results[:3], data)
+        state = t9.collect(state, results[3:], data)
+        rows = t9.read_csv(os.path.join(data, "results.csv"))
+        self.assertEqual([(r["mode"], r["outcome"], r["blocking"]) for r in rows], [("folder", "fail", "1"), ("url", "fail", "1")])
+        prod = t9.read_csv(os.path.join(data, "production.csv"))
+        self.assertEqual([(p["outcome"], p["merged_prs"]) for p in prod], [("first", ""), ("compared", "#1")])
+
+        self.assertEqual(t9.cmd_ledger(argparse.Namespace(data=data, second_look=False)), 0)
+        gate = t9.read_csv(os.path.join(data, "ledger-task9.csv"))
+        self.assertEqual([(r["rule_id"], r["notes"]) for r in gate], [("S1-BROKEN-LINK", "mode: both")])
+        prod_ledger = t9.read_csv(os.path.join(data, "ledger-task9-production.csv"))
+        self.assertEqual([(r["rule_id"], r["head_sha"]) for r in prod_ledger], [("S1-HOST-MISMATCH", "d" * 40)])
+        self.assertIn("#1", prod_ledger[0]["notes"])
+        # B's verdicts survive a second pre-fill.
+        gate[0].update(verdict="true_regression", verified_by="SurendharVr")
+        prod_ledger[0].update(verdict="true_regression", verified_by="SurendharVr")
+        t9.write_csv(os.path.join(data, "ledger-task9.csv"), t9.verify_helper.FIELDS, gate)
+        t9.write_csv(os.path.join(data, "ledger-task9-production.csv"), t9.verify_helper.FIELDS, prod_ledger)
+        t9.cmd_ledger(argparse.Namespace(data=data, second_look=False))
+        self.assertEqual(t9.read_csv(os.path.join(data, "ledger-task9.csv"))[0]["verdict"], "true_regression")
+
+        t9.cmd_report(argparse.Namespace(data=data))
+        with open(os.path.join(data, "summary.md"), encoding="utf-8") as fh:
+            md = fh.read()
+        self.assertIn("| Blocking precision | 1 of 1 (100.0%) | 1 of 1 (100.0%) |", md)
+        self.assertIn("| Frequency (per PR) | 1 of 1 (100.0%) |", md)
+        self.assertIn("fewer than 20, so the window is extended", md)
+        self.assertIn("1 from production audits, 1 true_regression", md)
+        self.assertIn("Soft 404s** (S1-SOFT-404 at high): 0 gate finding(s)", md)
+        self.assertIn("rule-of-three upper bound 3 / 1 PRs checked in url mode", md)
+        # The leak was not blocked on PR #1 by the gate: a miss.
+        self.assertIn("1 true_regression finding(s) from production audits on PRs the gate passed", md)
+
+        t9.cmd_ledger(argparse.Namespace(data=data, second_look=True))
+        look = t9.read_csv(os.path.join(data, "second-look.csv"))
+        self.assertEqual(len(look), round(0.2 * 2))
+        self.assertTrue(all(not r["verdict"] for r in look), "the first verdict must not be shown")
+
+    def test_the_workflow_keeps_strangers_code_away_from_tokens(self):
+        """SECURITY: check builds drawn repositories' PRs and crawls their previews, code
+        and content strangers wrote. It must get no secret, no write permission and no saved
+        credentials; only collect, which runs this repository's code, may write."""
+        try:
+            import yaml
+        except ImportError:
+            raise unittest.SkipTest("pyyaml not installed")
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".github", "workflows", "task9.yml")
+        with open(path, encoding="utf-8") as fh:
+            text = fh.read()
+        jobs = yaml.safe_load(text)["jobs"]
+        self.assertEqual(yaml.safe_load(text)["permissions"], {"contents": "read"})
+        writers = [n for n, j in jobs.items() if (j.get("permissions") or {}).get("contents") == "write"]
+        self.assertEqual(writers, ["collect"])
+        for name in ("check", "build-check"):
+            job = jobs[name]
+            self.assertNotIn("secrets.", json.dumps(job), name)
+            self.assertNotIn("github.token", json.dumps(job), name)
+            for step in job["steps"]:
+                if "actions/checkout" in step.get("uses", ""):
+                    self.assertIs(step["with"]["persist-credentials"], False, name)
+
+    def test_decision_rules_follow_section_6(self):
+        d = self.t9.decide
+        base = {"findings": 40, "judged": 40, "true": 39, "compared": 500, "hit": 10, "prs": 520, "tool": 10}
+        self.assertIn("all met", d(base, False))
+        self.assertIn("precision not met", d(dict(base, true=37), False))
+        self.assertIn("frequency not met", d(dict(base, hit=4), False))
+        self.assertIn("tool failures", d(dict(base, tool=30), False))
+        self.assertIn("extend", d(dict(base, findings=12, judged=12, true=12), False))
+        self.assertIn("precision not met", d(dict(base, findings=12, judged=12, true=12), True))
+
+    # ------------------------------------------------------------ one check, end to end
+
+    def test_a_folder_check_builds_the_pr_and_its_base(self):
+        """3.3, folder mode, on a throwaway repository: the PR head adds a broken link, its
+        base does not, so the gate fails with that one regression. The PR head is fetched
+        as refs/pull/N/head, as GitHub serves it."""
+        if not shutil.which("git"):
+            raise unittest.SkipTest("git not available")
+        src = os.path.join(self.d, "src")
+        os.makedirs(os.path.join(src, "src"))
+
+        def git(*args):
+            return subprocess.run(["git"] + list(args), cwd=src, check=True, capture_output=True, text=True,
+                                  env=dict(os.environ, GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@example.test",
+                                           GIT_COMMITTER_NAME="t", GIT_COMMITTER_EMAIL="t@example.test")).stdout.strip()
+        git("init", "-q", "-b", "main")
+        git("config", "commit.gpgsign", "false")
+        git("config", "uploadpack.allowAnySHA1InWant", "true")
+        page = lambda link="": page_html(body="<h1>H</h1><p>" + link + "word " * 300 + "</p>")
+        with open(os.path.join(src, "build.py"), "w", encoding="utf-8") as fh:
+            fh.write("import shutil\nshutil.copytree('src', 'out')\n")
+        with open(os.path.join(src, "src", "index.html"), "w", encoding="utf-8") as fh:
+            fh.write(page())
+        git("add", "-A")
+        git("commit", "-q", "-m", "base")
+        base = git("rev-parse", "HEAD")
+        git("checkout", "-q", "-b", "pr")
+        with open(os.path.join(src, "src", "index.html"), "w", encoding="utf-8") as fh:
+            fh.write(page('<a href="/gone/">x</a> '))
+        git("commit", "-q", "-am", "head")
+        head = git("rev-parse", "HEAD")
+        git("update-ref", "refs/pull/3/head", head)
+        git("checkout", "-q", "main")
+        git("branch", "-D", "pr")
+        entry = {"repo": "t/site", "url": src, "site_dir": "out",
+                 "build_command": '"{0}" build.py'.format(sys.executable), "homepage": "https://t.test"}
+        work = os.path.join(self.d, "work")
+        os.makedirs(work)
+        job = {"kind": "folder", "repo": "t/site", "pr": 3, "head": head, "base": base, "url": ""}
+        res = self.t9.run_job(job, self.d, work, sitemend.HERE, dict(os.environ, PYTHONIOENCODING="utf-8"), [entry])
+        self.assertEqual(res["outcome"], "fail", res["reason"])
+        self.assertEqual([f["id"] for f in res["regressions"]], ["S1-BROKEN-LINK"])
+
+    def test_a_url_check_compares_the_preview_with_production(self):
+        """3.3, url mode, with two local servers standing in for a preview and production.
+        A preview that does not answer 200 is preview_unavailable, never a pass or a fail."""
+        try:
+            import requests  # noqa: F401
+        except ImportError:
+            raise unittest.SkipTest("requests not installed (http mode is optional)")
+        import functools
+        import http.server
+        import threading
+
+        def serve(files):
+            root = tempfile.mkdtemp(dir=self.d)
+            for name, text in files.items():
+                with open(os.path.join(root, name), "w", encoding="utf-8") as fh:
+                    fh.write(text)
+            srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), functools.partial(
+                http.server.SimpleHTTPRequestHandler, directory=root))
+            srv.RequestHandlerClass.log_message = lambda *a, **k: None
+            threading.Thread(target=srv.serve_forever, daemon=True).start()
+            self.addCleanup(srv.server_close)
+            self.addCleanup(srv.shutdown)
+            return "http://127.0.0.1:%d/" % srv.server_address[1]
+        body = "<h1>H</h1><p>" + "word " * 300 + "</p>"
+        prod = serve({"index.html": page_html(body=body)})
+        preview = serve({"index.html": page_html(body='<h1>H</h1><p><a href="/gone/">x</a> ' + "word " * 300 + "</p>")})
+        entry = {"repo": "t/site", "homepage": prod}
+        env = dict(os.environ, PYTHONIOENCODING="utf-8")
+        job = {"kind": "url", "repo": "t/site", "pr": 3, "head": "h" * 40, "base": "b" * 40, "url": preview}
+        res = self.t9.run_job(job, self.d, os.path.join(self.d, "w1"), sitemend.HERE, env, [entry])
+        self.assertEqual(res["outcome"], "fail", res["reason"])
+        self.assertIn("S1-BROKEN-LINK", [f["id"] for f in res["regressions"]])
+        res = self.t9.run_job(dict(job, url=preview + "missing/"), self.d, os.path.join(self.d, "w2"),
+                              sitemend.HERE, env, [entry])
+        self.assertEqual(res["outcome"], "preview_unavailable")
 
 
 def _bench_module(*parts):
