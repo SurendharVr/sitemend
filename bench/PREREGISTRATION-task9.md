@@ -315,5 +315,4 @@ Applied to the window's results as written, with the outcome at the top of the r
 - Filled in and approved by (B): SurendharVr
 - Date: 2026-10-22
 - Merged before the draw and before any prospective run on real data (commit SHA of the
-  merge): recorded in a follow-up commit once merged, as for the main pre-registration
-  (#49).
+  merge): `9e34e2152e71857e5af430e208d5a1792e3c4798` (#90)
