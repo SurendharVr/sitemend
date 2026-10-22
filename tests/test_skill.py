@@ -3693,6 +3693,19 @@ class TestReplay(unittest.TestCase):
         self.assertEqual(os.path.getmtime(marker), before)
         self.assertEqual(again, rows)
 
+        # Another sitemend never reuses those audits: every commit is audited again.
+        other = os.path.join(d, "other", "scripts")
+        shutil.copytree(sitemend.HERE, other, ignore=shutil.ignore_patterns("__pycache__"))
+        shutil.copytree(os.path.join(sitemend.HERE, "..", "assets"), os.path.join(d, "other", "assets"))
+        with open(os.path.join(other, "audit.py"), "a", encoding="utf-8") as fh:
+            fh.write("\n# another version\n")
+        with open(marker, encoding="utf-8") as fh:
+            old = json.load(fh)["sitemend"]
+        third, _, _ = self._again(d, "--scripts", other)
+        with open(marker, encoding="utf-8") as fh:
+            self.assertNotEqual(json.load(fh)["sitemend"], old)
+        self.assertEqual([r["gate_result"] for r in third], [r["gate_result"] for r in rows])
+
     def test_pilot_runs_two_repositories_at_twenty_commits(self):
         """commits: 0 would compare nothing. The pilot asks for 20, and b has only two
         commits before the cutoff, so each repository gets exactly one comparison."""
@@ -3939,6 +3952,22 @@ class TestSeededRecall(unittest.TestCase):
         self.assertIn("| title-duplicated |", md)
         self.assertIn("Build failures, not counted in recall: t/broken.", md)
         self.assertNotIn("Tool failures (sitemend", md)
+        self.assertIn("it failed the check on 7 of 7 (100.0%); it failed it and the expected "
+                      "rule fired on 7 of 7 (100.0%).", md)
+
+    def test_recall_also_counts_what_the_gate_did(self):
+        """The 1.9.0 run's one pooled miss (learn-fips, canonical-preview-host): the expected
+        rule did not fire, but another one failed the gate. Fired alone hid that; a rule
+        firing while the gate passes must not read as caught by the gate either."""
+        seeded = _bench_module("seeded", "seeded.py")
+        if seeded is None:
+            raise unittest.SkipTest("bench/ is not shipped in the sdist")
+        row = lambda m, fired, gate: dict(repo="t/a", mutation=m, fired=fired, gate_failed=gate)
+        md = seeded.recall_md([row("canonical-preview-host", "n", "y"), row("noindex-added", "y", "y"),
+                               row("title-removed", "y", "n"), row("canonical-removed", "y", "n")], ["x"])
+        self.assertIn("**Recall, critical and high mutation types: 2 of 3 (66.7%)**", md)
+        self.assertIn("it failed the check on 2 of 3 (66.7%); it failed it and the expected "
+                      "rule fired on 1 of 3 (33.3%).", md)
 
     def test_the_duplicate_title_mutation_skips_a_title_shared_with_the_404_page(self):
         """REGRESSION from the 1.8.0 seeded run (#81): the home page shared its title with
