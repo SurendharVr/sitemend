@@ -358,10 +358,10 @@ states how many drawn sites that applies to.
 
 Decided by (B): SurendharVr. Date: 2026-10-22.
 
-## Addendum 2: the frame runs short, a sibling site, production on preview hosts (draft)
+## Addendum 2: the frame runs short, a sibling site, production on preview hosts (2026-10-23, before the build check)
 
-**Status:** draft, written by Claude on 2026-10-23. Not signed. Fields marked `____` are for
-B; the suggested value beside each one is for reference only.
+**Status:** signed by SurendharVr on 2026-10-23. Written by Claude on 2026-10-23; every
+choice below was proposed by Claude and accepted as written.
 
 **When.** After the draw ran, before any build check and before any data from the window.
 The candidate list below is known, so each choice here is made knowing it. That is stated
@@ -395,8 +395,8 @@ Section 2.2 takes the first 6 per stack that build, and `select` refuses a short
 Three stacks cannot reach 6 even before the build check, so 2.2 cannot be applied as
 written.
 
-**1. The short stacks.** Decided: ____
-- **(a) Fill from the other stacks** (suggested). Per stack, take every candidate that
+**1. The short stacks.** Decided: (a).
+- **(a) Fill from the other stacks** (accepted). Per stack, take every candidate that
   builds, up to 6. Fill the places left, up to 30, with the next candidates that built from
   the stacks that still have some, one stack at a time in the table's order (Docusaurus,
   then Astro), in draw order. Then apply 2.2's preview top-up as written: 10 flagged, at
@@ -418,8 +418,8 @@ written.
 **2. vuejs-translations/docs-ja.** It is the Japanese twin of
 vuejs-translations/docs-zh-cn, one of the 15 benchmark repositories that every 1.8.0 and
 1.9.0 fix came from. It is built from the same Vue docs template. Section 2.1 excludes
-exact repositories only, so it passes. Decided: ____
-- **(a) Exclude it** (suggested). Add to 2.1: any repository whose owner also owns a
+exact repositories only, so it passes. Decided: (a).
+- **(a) Exclude it** (accepted). Add to 2.1: any repository whose owner also owns a
   benchmark repository. Checked on the draw: it applies to docs-ja and to no other
   candidate, and no candidate shares an owner with a sweep repository. A translation of the
   same docs is, for this run, a site the rules were tuned on. Its place goes to the next
@@ -436,15 +436,15 @@ itself is on a per-deploy host:
 
 Preview-host leak detection has a known blind spot on such a site: the one pooled seeded
 miss, on learn-fips, was on a `vercel.app` production host. Their previews are still
-recognised, since #100 never takes the production host for a preview. Decided: ____
-- **(a) Keep them, and report apart** (suggested). Precision and frequency are unaffected.
+recognised, since #100 never takes the production host for a preview. Decided: (a).
+- **(a) Keep them, and report apart** (accepted). Precision and frequency are unaffected.
   The preview-host measure (section 5) is given with and without these sites, and the
   blind spot is stated.
 - **(b) Exclude them.** That drops 4 of 32 candidates, all of them small sites.
 
 **4. Homepages stored as http.** Two candidates' GitHub homepages are `http://` (mia-platform/documentation and nsc-de/JsTools). The build check already reads them over
-https (2.2). Decided: ____ (suggested: the production URL in `repos.json` is the https
-form, so production audits and url checks crawl what 2.2 checked).
+https (2.2). Decided: the production URL in `repos.json` is the https form, so production audits and
+url checks crawl what 2.2 checked.
 
 **5. Unchanged:** everything else in this file and Addendum 1, including the frozen
 version (1.9.1), the draw date, the window, verdicts, thresholds and decision rules.
@@ -456,4 +456,4 @@ version (1.9.1), the draw date, the window, verdicts, thresholds and decision ru
 
 None of it changes which repositories were looked at, or their order.
 
-Decided by (B): ____. Date: ____.
+Decided by (B): SurendharVr. Date: 2026-10-23.
