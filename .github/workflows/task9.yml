@@ -71,7 +71,10 @@ jobs:
     if: needs.plan.outputs.jobs != '[]'
     name: ${{ matrix.kind }} ${{ matrix.repo }} ${{ matrix.pr }}
     runs-on: ubuntu-latest
-    timeout-minutes: 150
+    # A folder check's worst case: two builds of up to 30 minutes and two audits of up to
+    # 60 (3.5), plus the clone and installs. Shorter, a slow but valid check would be killed
+    # and counted as a tool failure.
+    timeout-minutes: 200
     strategy:
       fail-fast: false
       max-parallel: 20
@@ -139,11 +142,12 @@ jobs:
         with:
           python-version: "3.12"
       # The artifacts are data from untrusted jobs; only this repository's code reads them.
+      # Each goes to its own folder: merged, a check artifact could replace the plan's
+      # snapshot or another job's result. collect reads one known file from each.
       - uses: actions/download-artifact@v4
         with:
           pattern: task9-*
           path: incoming
-          merge-multiple: true
       - run: python bench/task9/task9.py collect --data data --incoming incoming
       - name: Push the data branch
         working-directory: data

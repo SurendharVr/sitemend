@@ -380,11 +380,18 @@ def plan(state, repos, opens, ends, t, get=None, hash_home=None, cap=200):
                                        "bot": (p.get("user") or {}).get("type") == "Bot", "heads": {}})
             head = p["head"]["sha"]
             rec.update(state=p["state"], merged_at=p.get("merged_at"), closed_at=p.get("closed_at"))
+            if rec.get("final_by") == "end" and parse_time(rec["final_end"]) < ends:
+                # The window was extended (3.1) after this head was taken at the old end:
+                # the extended close is the window's close, so the PR is followed again.
+                for k in ("final_head", "final_by", "final_end"):
+                    rec.pop(k, None)
             h = rec["heads"].setdefault(head, {"seen": stamp(t), "base_sha": p["base"]["sha"],
                                                "folder": None, "url": None, "folder_tries": 0, "url_tries": 0})
             h["draft"] = bool(p.get("draft"))
             if rec.get("final_head") is None and (p["state"] == "closed" or over):
                 rec["final_head"] = head
+                if p["state"] != "closed":
+                    rec.update(final_by="end", final_end=stamp(ends))
             final = rec.get("final_head")
             if final and final != head:
                 continue                       # after the final head, nothing else counts
@@ -422,13 +429,22 @@ def plan(state, repos, opens, ends, t, get=None, hash_home=None, cap=200):
                "node_version": e.get("node_version", "24")}
         if len(jobs) >= cap:
             continue
-        if last is None:
-            jobs.append(job)
+        # A production audit that never succeeds is tried MAX_TRIES times for each state
+        # of the branch, not on every poll for the rest of the window.
+        tries = state.setdefault("production_tries", {}).setdefault(repo, {"sha": branch_sha, "n": 0})
+        if tries["sha"] != branch_sha:
+            tries.update(sha=branch_sha, n=0)
+        if tries["n"] >= MAX_TRIES:
             continue
-        merged = [parse_time(c["commit"]["committer"]["date"]) for c in commits
-                  if parse_time(c["commit"]["committer"]["date"]) > parse_time(last["audited_at"])]
-        if merged and ((t - min(merged)).total_seconds() >= PROD_WAIT
-                       or hash_home(e["homepage"]) != last.get("home_hash")):
+        if last is None:
+            due = True
+        else:
+            merged = [parse_time(c["commit"]["committer"]["date"]) for c in commits
+                      if parse_time(c["commit"]["committer"]["date"]) > parse_time(last["audited_at"])]
+            due = bool(merged) and ((t - min(merged)).total_seconds() >= PROD_WAIT
+                                    or hash_home(e["homepage"]) != last.get("home_hash"))
+        if due:
+            tries["n"] += 1
             jobs.append(job)
     return state, jobs
 
@@ -575,6 +591,7 @@ def collect(state, results, data):
             if res.get("findings") is not None:
                 state["production"][job["repo"]] = {"audited_at": res["checked_at"], "findings": rel,
                                                     "home_hash": res.get("home_hash")}
+                state.get("production_tries", {}).pop(job["repo"], None)
             continue
         rec = state["prs"]["{0}#{1}".format(job["repo"], job["pr"])]
         h = rec["heads"][job["head"]]
@@ -591,28 +608,68 @@ def collect(state, results, data):
     return state
 
 
+OUTCOMES = {"folder": {"pass", "fail", "build_failed", "tool_failure"},
+            "url": {"pass", "fail", "tool_failure", "preview_unavailable"},
+            "production": {"first", "compared", "tool_failure"}}
+
+
+def trusted_results(incoming):
+    """(state, results) from one run's artifacts, each downloaded to its own folder.
+
+    The plan artifact comes from plan, which runs only this repository's code; each
+    result artifact comes from a check job that has just run a stranger's build, which can
+    write anything into it. So the snapshot and the job list are read only from
+    task9-plan, and a check artifact contributes exactly one file, result-<id>.json from
+    task9-result-<id>, accepted only if it describes the job plan gave that id, with a known
+    outcome and lists where lists belong. Everything else in it is ignored. A build can
+    still lie about its own job's result; it cannot touch any other job, or the state."""
+    plan_dir = os.path.join(incoming, "task9-plan")
+    state = read_json(os.path.join(plan_dir, "snapshot.json"))
+    jobs = read_json(os.path.join(plan_dir, "jobs.json"), [])
+    results, rejected = [], []
+    for job in jobs:
+        res = read_json(os.path.join(incoming, "task9-result-" + job["id"], "result-{0}.json".format(job["id"])))
+        if res is None:
+            continue                       # the job did not finish; plan tries it again
+        ok = (isinstance(res, dict) and res.get("job") == job
+              and res.get("outcome") in OUTCOMES[job["kind"]]
+              and isinstance(res.get("regressions"), list) and isinstance(res.get("advisory", []), list)
+              and all(isinstance(f, dict) for f in res["regressions"])
+              and isinstance(res.get("findings", []), (list, type(None)))
+              and isinstance(res.get("reason", ""), str) and isinstance(res.get("checked_at"), str))
+        if ok:
+            results.append(dict(res, job=job))
+        else:
+            rejected.append(job["id"])
+    return state, results, rejected
+
+
 def cmd_collect(args):
     if not read_json(os.path.join(HERE, "repos.json")):
         print("no draw yet: nothing to collect")
         return 0
-    state = read_json(os.path.join(args.incoming, "snapshot.json")) or read_json(os.path.join(args.data, "state.json"), {})
-    results = [read_json(p) for p in sorted(glob.glob(os.path.join(args.incoming, "**", "result-*.json"), recursive=True))]
+    state, results, rejected = trusted_results(args.incoming)
+    if state is None:
+        print("no plan artifact: nothing to collect")
+        return 0
     collect(state, results, args.data)
-    print("{0} result(s) collected".format(len(results)))
+    print("{0} result(s) collected; rejected: {1}".format(len(results), ", ".join(rejected) or "none"))
     return 0
 
 
 # ---------------------------------------------------------------- verdicts (section 4)
 
 def counted(state):
-    """(pr record, final head, mode) for every comparison that counts (3.3): the final head's
-    check in each mode."""
+    """(pr record, final head, mode, outcome) for every comparison that counts (3.2, 3.3):
+    the final head's check in each mode, once it has a result. A final head that was a
+    draft, or whose check has not reported yet, is not a counted PR."""
     for key, rec in sorted((state.get("prs") or {}).items()):
-        final = rec.get("final_head")
-        if not final or final not in rec["heads"]:
+        h = rec["heads"].get(rec.get("final_head") or "")
+        if not h or h.get("draft"):
             continue
         for mode in ("folder", "url"):
-            yield rec, final, mode, rec["heads"][final].get(mode)
+            if h.get(mode) is not None:
+                yield rec, rec["final_head"], mode, h[mode]
 
 
 def ledger_row(repo, head, f, note):
