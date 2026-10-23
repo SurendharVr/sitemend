@@ -188,23 +188,29 @@ def build_rule(stack, d, root_files, root_pkg, yarnrc, site_pkg, cfg_text, nvmrc
 # Anything else (a rate limit, a 5xx, a dropped connection) says nothing about it.
 FINAL_STATUSES = {"400", "404", "409", "410", "422", "451"}
 GH_WAITS = (60, 120, 240, 480, 900, 900, 900)   # about 1 h of backing off in all
+# A 403 is usually a rate limit, but a repository disabled for terms-of-service reasons
+# answers 403 "Repository access blocked" for good; retried, the draw could never pass it.
+BLOCKED = re.compile(r"access blocked|has been disabled|repository is disabled", re.I)
 
 
 def gh(path, raw=False):
     """gh api, with every answer cached under cache/ so a re-run is reproducible.
 
-    Only answers are cached: a success, or a final status (FINAL_STATUSES), stored as
-    "HTTP <code>" and read back as no data. A failure that says nothing about the
+    Only answers are cached: a success, or a final status (FINAL_STATUSES, or a 403 for a
+    blocked repository), stored as "HTTP <code>" and read back as no data. A failure that says nothing about the
     repository is retried with GH_WAITS between tries, and if it still fails the draw
     stops with an error. REGRESSION: it used to be cached as an empty answer after six
     tries a minute apart, so a burst of secondary rate limits marked 26 public, readable
     repositories "not readable" in the Task 9 draw, and every re-run read that back."""
     key = hashlib.sha256((("raw:" if raw else "") + path).encode()).hexdigest()
     cache = os.path.join(HERE, "cache", key[:2], key)
+    body = None
     if os.path.exists(cache):
         with open(cache, encoding="utf-8") as fh:
             body = fh.read()
-    else:
+    # An empty entry is from before answers were told apart from failures: a 404 and a
+    # failed request were both written as "". It is asked again, once.
+    if not body:
         for wait in GH_WAITS + (None,):
             r = subprocess.run(["gh", "api"] + (["-i"] if raw else []) + [path],
                                capture_output=True, text=True, encoding="utf-8", errors="replace")
@@ -212,7 +218,9 @@ def gh(path, raw=False):
             if r.returncode == 0:
                 body = r.stdout
                 break
-            if status and status.group(1) in FINAL_STATUSES and "rate limit" not in r.stderr.lower():
+            if status and "rate limit" not in r.stderr.lower() and (
+                    status.group(1) in FINAL_STATUSES
+                    or (status.group(1) == "403" and BLOCKED.search(r.stderr))):
                 body = "HTTP " + status.group(1)
                 break
             if wait is None:

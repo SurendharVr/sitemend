@@ -4775,6 +4775,20 @@ class TestSampling(unittest.TestCase):
         self.assertEqual((len(calls), waits), (1, []))
         calls, _ = self._fake_gh([(1, "", "gh: Git Repository is empty. (HTTP 409)")])
         self.assertEqual(S.gh("repos/o/e/commits?per_page=1", raw=True), "")
+        # A repository disabled for terms-of-service reasons answers 403 for good: final,
+        # or the draw could never get past it.
+        calls, waits = self._fake_gh([(1, "", "gh: Repository access blocked (HTTP 403)")])
+        self.assertIsNone(S.gh("repos/o/blocked"))
+        self.assertEqual(waits, [])
+        # An empty entry from an older cache (a 404 and a failure were both written as "")
+        # is asked again once, and the real answer replaces it.
+        calls, _ = self._fake_gh([(0, '{"full_name": "o/old"}', "")])
+        key = __import__("hashlib").sha256(b"repos/o/old").hexdigest()
+        os.makedirs(os.path.join(S.HERE, "cache", key[:2]))
+        open(os.path.join(S.HERE, "cache", key[:2], key), "w").close()
+        self.assertEqual(S.gh("repos/o/old"), {"full_name": "o/old"})
+        self.assertEqual(S.gh("repos/o/old"), {"full_name": "o/old"})
+        self.assertEqual(len(calls), 1)
         # Unchanged: a rate limit reported with a 404-looking code is still a rate limit.
         calls, waits = self._fake_gh([(1, "", "API rate limit exceeded (HTTP 403)"), (0, "[]", "")])
         self.assertEqual(S.gh("repos/o/x/commits"), [])
