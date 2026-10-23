@@ -4730,6 +4730,56 @@ class TestSampling(unittest.TestCase):
         self.assertEqual(self.S.reduce_frame(items, pattern),
                          {"o/a": "docusaurus.config.ts", "o/c": "site/docusaurus.config.mts"})
 
+    def _fake_gh(self, answers):
+        """sample.gh against scripted gh answers, a throwaway cache and no sleeping.
+        answers: (returncode, stdout, stderr) per call, in order."""
+        S, calls, waits = self.S, [], []
+        d = tempfile.mkdtemp(prefix="sitemend-gh-")
+        self.addCleanup(shutil.rmtree, d, True)
+        S.HERE = d
+
+        def run(cmd, **kw):
+            calls.append(cmd)
+            code, out, err = answers[min(len(calls), len(answers)) - 1]
+            return subprocess.CompletedProcess(cmd, code, out, err)
+        S.subprocess = type("P", (), {"run": staticmethod(run)})
+        S.time = type("T", (), {"sleep": staticmethod(waits.append)})
+        return calls, waits
+
+    def test_a_failed_request_is_retried_and_never_cached(self):
+        """REGRESSION from the Task 9 draw: a burst of secondary rate limits was cached as
+        an empty answer, marking 26 public repositories "not readable" for good."""
+        S = self.S
+        limited = (1, "", "gh: You have exceeded a secondary rate limit (HTTP 403)")
+        calls, waits = self._fake_gh([limited, limited, (0, '{"full_name": "o/r"}', "")])
+        self.assertEqual(S.gh("repos/o/r"), {"full_name": "o/r"})
+        self.assertEqual(waits, [60, 120])
+        self.assertEqual(S.gh("repos/o/r"), {"full_name": "o/r"})
+        self.assertEqual(len(calls), 3, "the success is cached")
+        # Failing on every try stops the draw, and leaves nothing behind to read back.
+        calls, waits = self._fake_gh([limited])
+        with self.assertRaises(RuntimeError):
+            S.gh("repos/o/s")
+        self.assertEqual(waits, list(S.GH_WAITS))
+        calls, _ = self._fake_gh([(0, '{"full_name": "o/s"}', "")])
+        self.assertEqual(S.gh("repos/o/s"), {"full_name": "o/s"})
+        self.assertEqual(len(calls), 1, "nothing was cached for the failure")
+
+    def test_a_final_status_is_cached_as_such(self):
+        """A 404 (gone) or a 409 (empty repository) is an answer about the repository: it
+        is cached, read back as no data, and not asked again."""
+        S = self.S
+        calls, waits = self._fake_gh([(1, "", "gh: Not Found (HTTP 404)")])
+        self.assertIsNone(S.gh("repos/o/gone"))
+        self.assertIsNone(S.gh("repos/o/gone"))
+        self.assertEqual((len(calls), waits), (1, []))
+        calls, _ = self._fake_gh([(1, "", "gh: Git Repository is empty. (HTTP 409)")])
+        self.assertEqual(S.gh("repos/o/e/commits?per_page=1", raw=True), "")
+        # Unchanged: a rate limit reported with a 404-looking code is still a rate limit.
+        calls, waits = self._fake_gh([(1, "", "API rate limit exceeded (HTTP 403)"), (0, "[]", "")])
+        self.assertEqual(S.gh("repos/o/x/commits"), [])
+        self.assertEqual(waits, [60])
+
     def test_draw_order_is_the_published_seed(self):
         import random
         repos = ["c/z", "a/x", "b/y", "d/w"]
