@@ -160,22 +160,39 @@ def public_https(url):
     return bool(addrs) and all(ipaddress.ip_address(a.split("%")[0]).is_global for a in addrs)
 
 
-def preview_url(get, repo, sha, pr=None, ok=None):
-    """A preview deploy of sha, as the host reported it: a successful non-production
-    deployment, a successful deploy or preview commit status, or (with pr) a bot comment
-    on the PR that names the commit and links a per-deploy hostname. None when there is
-    none. Only a public https URL counts (public_https, or ok in tests). ponytail: a bot
-    comment that does not name the commit is ignored, since it may be about an older head."""
+def is_preview(label, url, home=None):
+    """Whether a deployment or status names a preview deploy: its environment or context
+    says preview, or its URL is on a per-deploy host (PREVIEW_HOSTS), and it is not
+    production. REGRESSION from the Task 9 draw: any deployment not called "production"
+    counted, so a release deployment to PyPI (https://pypi.org/p/...) flagged a preview,
+    and a GitHub Pages deployment ("github-pages", the live site) would have been crawled
+    as the PR's preview and compared with itself. A URL on the production site's own host
+    is never a preview."""
+    host = (urlsplit(url or "").hostname or "").lower()
+    home_host = (urlsplit(home if home and "://" in home else "https://" + (home or "")).hostname or "").lower()
+    if not host or re.search(r"production|github-pages", label or "", re.I) or (home_host and host == home_host):
+        return False
+    return bool(re.search(r"preview", label or "", re.I)) or host.endswith(PREVIEW_HOSTS)
+
+
+def preview_url(get, repo, sha, pr=None, ok=None, home=None):
+    """A preview deploy of sha, as the host reported it: a successful deployment, or a
+    successful commit status, that is_preview accepts, or (with pr) a bot comment on the
+    PR that names the commit and links a per-deploy hostname. None when there is none.
+    Only a public https URL counts (public_https, or ok in tests); home is the production
+    homepage, never taken for a preview. ponytail: a bot comment that does not name the
+    commit is ignored, since it may be about an older head."""
     ok = ok or public_https
     for d in get("repos/{0}/deployments?sha={1}&per_page=20".format(repo, sha)) or []:
-        if (d.get("environment") or "").lower().startswith("production"):
-            continue
+        env = d.get("environment") or ""
         for s in get("repos/{0}/deployments/{1}/statuses?per_page=20".format(repo, d["id"])) or []:
-            if s.get("state") == "success" and ok(s.get("environment_url")):
-                return s["environment_url"]
+            url = s.get("environment_url")
+            if s.get("state") == "success" and is_preview(env, url, home) and ok(url):
+                return url
     for s in get("repos/{0}/commits/{1}/statuses?per_page=100".format(repo, sha)) or []:
         url = s.get("target_url") or ""
         if (s.get("state") == "success" and re.search(r"deploy|preview", s.get("context") or "", re.I)
+                and is_preview(s.get("context"), url, home)
                 and "github.com" not in (urlsplit(url).hostname or "") and ok(url)):
             return url
     if pr is not None:
@@ -184,7 +201,7 @@ def preview_url(get, repo, sha, pr=None, ok=None):
             if (c.get("user") or {}).get("type") != "Bot" or sha[:7] not in body:
                 continue
             for url in re.findall(r"https://[^\s)\"'<>\]|]+", body):
-                if (urlsplit(url).hostname or "").endswith(PREVIEW_HOSTS) and ok(url):
+                if (urlsplit(url).hostname or "").endswith(PREVIEW_HOSTS) and is_preview("", url, home) and ok(url):
                     return url
     return None
 
@@ -215,12 +232,12 @@ def merged_prs(repo, branch):
     return doc.get("total_count", 0), [i["number"] for i in doc.get("items", [])]
 
 
-def preview_flag(repo, numbers):
+def preview_flag(repo, numbers, home=None):
     """The first preview found on those merged PRs, or None (recorded, not required)."""
     for n in numbers:
         pull = sample.gh("repos/{0}/pulls/{1}".format(repo, n)) or {}
         sha = (pull.get("head") or {}).get("sha")
-        url = sha and preview_url(sample.gh, repo, sha, n)
+        url = sha and preview_url(sample.gh, repo, sha, n, home=home)
         if url:
             return url
     return None
@@ -258,7 +275,7 @@ def cmd_draw(args):
                 elif not row["homepage"]:
                     row.update(outcome="ineligible", reason="no GitHub homepage")
                 else:
-                    row["preview"] = preview_flag(repo, numbers) or ""
+                    row["preview"] = preview_flag(repo, numbers, row["homepage"]) or ""
                     found += 1
                     cands.append(dict({k: row[k] for k in ("repo", "stack", "rank", "build_command", "site_dir",
                                                             "node_version", "homepage", "preview")},
@@ -479,7 +496,7 @@ def plan(state, repos, opens, ends, t, get=None, hash_home=None, cap=200, ok=Non
                 if mode == "url":
                     if not final and not preview_due(h, t):
                         continue
-                    url = preview_url(get, repo, head, p["number"], ok)
+                    url = preview_url(get, repo, head, p["number"], ok, e["homepage"])
                     h["url_looked_at"] = stamp(t)
                     if not url:
                         if final:
