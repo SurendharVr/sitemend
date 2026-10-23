@@ -4390,6 +4390,29 @@ class TestTask9(unittest.TestCase):
         _, again, _ = t9.collect_new(state, data, self.at(days=1), get, blobs.get, repo="me/t")
         self.assertEqual(again, [], "an artifact is filed once")
 
+    def test_only_a_preview_deployment_counts_as_a_preview(self):
+        """REGRESSION from the Task 9 draw: rtl-buddy was flagged with a preview at
+        https://pypi.org/p/rtl_buddy, a release deployment. A GitHub Pages deployment (the
+        live site) would have been crawled as the PR's preview and compared with itself."""
+        t9, sha = self.t9, "a" * 40
+
+        def found(env, url, home="https://site.example"):
+            api = {"repos/o/r/deployments?sha={0}&per_page=20".format(sha): [{"id": 1, "environment": env}],
+                   "repos/o/r/deployments/1/statuses?per_page=20": [{"state": "success", "environment_url": url}]}
+            return t9.preview_url(api.get, "o/r", sha, home=home)
+        self.assertIsNone(found("pypi", "https://pypi.org/p/rtl_buddy"))
+        self.assertIsNone(found("github-pages", "https://o.github.io/r/"))
+        self.assertIsNone(found("Production – sywyke", "https://sywyke.vercel.app"))
+        self.assertIsNone(found("staging", "https://site.example/"), "the production host is never a preview")
+        self.assertIsNone(found("Preview", "https://sywyke.vercel.app", home="https://sywyke.vercel.app"))
+        self.assertEqual(found("Preview – sywyke", "https://sywyke-abc123.vercel.app"), "https://sywyke-abc123.vercel.app")
+        self.assertEqual(found("deploy", "https://deploy-preview-7--x.netlify.app"), "https://deploy-preview-7--x.netlify.app")
+        # Commit statuses follow the same rule.
+        api = {"repos/o/r/commits/{0}/statuses?per_page=100".format(sha): [
+            {"state": "success", "context": "release/deploy", "target_url": "https://pypi.org/p/x"},
+            {"state": "success", "context": "netlify/x/deploy-preview", "target_url": "https://deploy-preview-7--x.netlify.app"}]}
+        self.assertEqual(t9.preview_url(api.get, "o/r", sha), "https://deploy-preview-7--x.netlify.app")
+
     def test_a_preview_url_must_be_public_https(self):
         """SECURITY: preview URLs come from deployments, statuses and comments strangers
         control; an internal address must never be crawled and committed."""
