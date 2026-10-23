@@ -4342,6 +4342,17 @@ class TestTask9(unittest.TestCase):
         # The leak was not blocked on PR #1 by the gate: a miss.
         self.assertIn("1 true_regression finding(s) from production audits on PRs the gate passed", md)
 
+        # Addendum 2, part 3: the preview-host measure again without the sites whose
+        # production is on a per-deploy host.
+        repos = os.path.join(self.d, "repos.json")
+        t9.write_json(repos, [{"repo": "o/r", "homepage": "https://o-r.vercel.app"}])
+        t9.cmd_report(argparse.Namespace(data=data, repos=repos))
+        with open(os.path.join(data, "summary.md"), encoding="utf-8") as fh:
+            md = fh.read()
+        self.assertIn("- Without the 1 site(s) whose production is on a preview platform's host (o/r): "
+                      "0 gate finding(s), 0 from production audits, 0 true_regression; "
+                      "upper bound 3 / 0 merged PRs = n/a.", md)
+
         t9.cmd_ledger(argparse.Namespace(data=data, second_look=True))
         look = t9.read_csv(os.path.join(data, "second-look.csv"))
         self.assertEqual(len(look), round(0.2 * 2))
@@ -4598,7 +4609,8 @@ class TestTask9(unittest.TestCase):
 
     def test_select_writes_nothing_while_a_stack_is_short(self):
         t9, out = self.t9, os.path.join(self.d, "draw")
-        cands = [{"repo": "{0}/r{1}".format(s, i), "stack": s, "rank": i, "preview": ""}
+        cands = [{"repo": "{0}/r{1}".format(s, i), "stack": s, "rank": i, "preview": "",
+                  "homepage": "http://{0}{1}.example".format(s, i)}
                  for s, _, _, _ in t9.sample.STACKS for i in range(1, 7)]
         t9.write_json(os.path.join(out, "candidates.json"), cands)
         builds = os.path.join(out, "builds.csv")
@@ -4608,7 +4620,42 @@ class TestTask9(unittest.TestCase):
         self.assertFalse(os.path.exists(os.path.join(out, "repos.json")))
         t9.write_csv(builds, ["repo", "status"], [{"repo": c["repo"], "status": "ok"} for c in cands])
         self.assertEqual(t9.cmd_select(argparse.Namespace(builds=[builds], out=out)), 0)
-        self.assertEqual(len(t9.read_json(os.path.join(out, "repos.json"))), 30)
+        taken = t9.read_json(os.path.join(out, "repos.json"))
+        self.assertEqual(len(taken), 30)
+        # Addendum 2, part 4: the production URL is the https form the build check read.
+        self.assertTrue(all(e["homepage"].startswith("https://") for e in taken))
+
+    def test_short_stacks_are_filled_from_the_others_in_draw_order(self):
+        """Addendum 2, part 1, on the draw's own shape: Hugo has none, VitePress and
+        Next.js 4 each. Every one that built is taken, the places left up to 30 come from
+        Docusaurus and Astro one at a time in draw order, then the preview top-up."""
+        t9 = self.t9
+        sizes = {"docusaurus": 12, "astro": 12, "vitepress": 4, "hugo": 0, "nextjs": 4}
+        cands = [{"repo": "{0}/r{1}".format(s, i), "stack": s, "rank": i,
+                  "preview": "https://p" if (s, i) in {("astro", 12), ("docusaurus", 12)} else ""}
+                 for s, n in sizes.items() for i in range(1, n + 1)]
+        built = {c["repo"]: "build_failed" if c["repo"] == "vitepress/r2" else "ok" for c in cands}
+        taken, short = t9.select(cands, built)
+        self.assertEqual(sorted(short), ["hugo", "nextjs", "vitepress"])
+        repos = [c["repo"] for c in taken]
+        self.assertEqual(len([r for r in repos if r.startswith(("vitepress", "nextjs"))]), 3 + 4)
+        # 6 + 6 + 3 + 0 + 4 = 19; 11 more alternate from rank 7: D7, A7, D8, A8, ..., D12.
+        self.assertEqual(repos[19:30], ["docusaurus/r7", "astro/r7", "docusaurus/r8", "astro/r8",
+                                        "docusaurus/r9", "astro/r9", "docusaurus/r10", "astro/r10",
+                                        "docusaurus/r11", "astro/r11", "docusaurus/r12"])
+        # Only 1 flagged among the 30: the top-up takes the next flagged one, astro/r12.
+        self.assertEqual(repos[30:], ["astro/r12"])
+
+    def test_a_repository_sharing_an_owner_with_the_benchmark_is_excluded(self):
+        """Addendum 2, part 2: vuejs-translations/docs-ja is the twin of docs-zh-cn, one of
+        the 15 benchmark repositories."""
+        why = self.t9.exclusion
+        owners = self.t9.benchmark_owners()
+        self.assertIn("vuejs-translations", owners)
+        self.assertIn("benchmark repository", why("vuejs-translations/docs-ja", set(), owners))
+        self.assertIn("B's own", why("SurendharVr/x", set(), owners))
+        self.assertIn("the sweep", why("o/swept", {"o/swept"}, owners))
+        self.assertIsNone(why("honojs/website", set(), owners))
 
     def test_the_workflow_keeps_strangers_code_away_from_tokens(self):
         """SECURITY: check builds drawn repositories' PRs and crawls their previews, code
