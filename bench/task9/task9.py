@@ -361,6 +361,22 @@ def home_hash(url):
         return None
 
 
+PREVIEW_FAST = 3600        # a head's first hour: its preview is looked for on every poll
+PREVIEW_SLOW = 3600        # then once an hour, until it has one or the PR's head is final
+
+
+def preview_due(h, t):
+    """Whether to look for a head's preview on this poll. A preview usually appears within
+    minutes of a push; a site that never publishes one would otherwise cost three API
+    calls per open PR on every poll for the whole window. The final head is always looked
+    at once more, so a late preview is still checked (3.3)."""
+    if not h.get("url_looked_at"):
+        return True
+    age = (t - parse_time(h["seen"])).total_seconds()
+    since = (t - parse_time(h["url_looked_at"])).total_seconds()
+    return age < PREVIEW_FAST or since >= PREVIEW_SLOW
+
+
 def plan(state, repos, opens, ends, t, get=None, hash_home=None, cap=200):
     """One poll: the next state and the jobs to run. Check outcomes are only ever written
     by collect; plan records what GitHub says about each PR and what it scheduled. At most
@@ -410,7 +426,10 @@ def plan(state, repos, opens, ends, t, get=None, hash_home=None, cap=200):
                     break
                 url = None
                 if mode == "url":
+                    if not final and not preview_due(h, t):
+                        continue
                     url = preview_url(get, repo, head, p["number"])
+                    h["url_looked_at"] = stamp(t)
                     if not url:
                         if final:
                             h["url"] = "preview_unavailable"
@@ -422,9 +441,12 @@ def plan(state, repos, opens, ends, t, get=None, hash_home=None, cap=200):
         if over:
             continue
         last = prod.get(repo)
-        commits = get("repos/{0}/commits?sha={1}&per_page=100{2}".format(
-            repo, branch, "&since=" + last["audited_at"] if last else "")) or []
+        # The branch head, not commit dates: a fast-forward or rebase merge can keep dates
+        # older than the last audit, and would never be seen by date.
+        commits = get("repos/{0}/commits?sha={1}&per_page=1".format(repo, branch)) or []
         branch_sha = commits[0]["sha"] if commits else ""
+        if last is not None and not branch_sha:
+            continue                           # the branch could not be read this poll
         job = {"repo": repo, "kind": "production", "url": e["homepage"], "branch_sha": branch_sha,
                "node_version": e.get("node_version", "24")}
         if len(jobs) >= cap:
@@ -438,11 +460,16 @@ def plan(state, repos, opens, ends, t, get=None, hash_home=None, cap=200):
             continue
         if last is None:
             due = True
+        elif branch_sha == last.get("branch_sha"):
+            due = False
         else:
-            merged = [parse_time(c["commit"]["committer"]["date"]) for c in commits
-                      if parse_time(c["commit"]["committer"]["date"]) > parse_time(last["audited_at"])]
-            due = bool(merged) and ((t - min(merged)).total_seconds() >= PROD_WAIT
-                                    or hash_home(e["homepage"]) != last.get("home_hash"))
+            # 3.4's 2 hours run from when a poll first saw the new head, so at most one
+            # poll (15 minutes) after the merge itself.
+            seen = state.setdefault("production_seen", {})
+            if seen.get(repo, {}).get("sha") != branch_sha:
+                seen[repo] = {"sha": branch_sha, "at": stamp(t)}
+            due = ((t - parse_time(seen[repo]["at"])).total_seconds() >= PROD_WAIT
+                   or hash_home(e["homepage"]) != last.get("home_hash"))
         if due:
             tries["n"] += 1
             jobs.append(job)
@@ -544,26 +571,13 @@ def run_job(job, data, work, scripts, env, repos=None):
 
 def cmd_check(args):
     job = json.loads(args.job)
-    scripts = args.scripts or frozen_scripts()
+    scripts = args.scripts or replay.installed_scripts(FROZEN)
     work = os.path.abspath(args.work)
     os.makedirs(work, exist_ok=True)
     res = run_job(job, args.data, work, scripts, replay.tool_env(work))
     write_json(os.path.join(args.out, "result-{0}.json".format(job["id"])), res)
     print(res["outcome"], res["reason"])
     return 0
-
-
-def frozen_scripts():
-    """The installed sitemend's folder, refusing any version but Task 9's."""
-    from importlib import metadata, util
-    try:
-        version = metadata.version("sitemend")
-    except metadata.PackageNotFoundError:
-        version = None
-    if version != FROZEN:
-        sys.exit("Task 9 is frozen on sitemend {0}; this Python has {1}. pip install sitemend=={0}".format(
-            FROZEN, version or "none"))
-    return list(util.find_spec("sitemend").submodule_search_locations)[0]
 
 
 def collect(state, results, data):
@@ -586,12 +600,15 @@ def collect(state, results, data):
                               "merged_prs": " ".join("#{0}".format(n) for n in merged),
                               "new_critical_high": len(res["regressions"]), "outcome": res["outcome"],
                               "reason": res["reason"]})
-            write_json(os.path.join(data, "production", slug(job["repo"]), res["checked_at"].replace(":", "") + "-new.json"),
-                       res["regressions"])
+            if res["outcome"] == "compared" and res["regressions"]:
+                write_json(os.path.join(data, "production", slug(job["repo"]),
+                                        res["checked_at"].replace(":", "") + "-new.json"), res["regressions"])
             if res.get("findings") is not None:
                 state["production"][job["repo"]] = {"audited_at": res["checked_at"], "findings": rel,
-                                                    "home_hash": res.get("home_hash")}
-                state.get("production_tries", {}).pop(job["repo"], None)
+                                                    "home_hash": res.get("home_hash"),
+                                                    "branch_sha": job.get("branch_sha", "")}
+                for k in ("production_tries", "production_seen"):
+                    state.get(k, {}).pop(job["repo"], None)
             continue
         rec = state["prs"]["{0}#{1}".format(job["repo"], job["pr"])]
         h = rec["heads"][job["head"]]

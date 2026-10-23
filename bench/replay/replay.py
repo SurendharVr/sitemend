@@ -48,17 +48,17 @@ def git(cwd, *args):
                           text=True).stdout.strip()
 
 
-def installed_scripts():
-    """The installed sitemend's folder, refusing any version but the frozen one: a replay
-    measured on a moving version measures nothing."""
+def installed_scripts(frozen=FROZEN):
+    """The installed sitemend's folder, refusing any version but the frozen one: a run
+    measured on a moving version measures nothing. Task 9 passes its own."""
     from importlib import metadata, util
     try:
         version = metadata.version("sitemend")
     except metadata.PackageNotFoundError:
         version = None
-    if version != FROZEN:
-        sys.exit("the replay is frozen on sitemend {0}; this Python has {1}. "
-                 "pip install sitemend=={0}".format(FROZEN, version or "none"))
+    if version != frozen:
+        sys.exit("this run is frozen on sitemend {0}; this Python has {1}. "
+                 "pip install sitemend=={0}".format(frozen, version or "none"))
     return list(util.find_spec("sitemend").submodule_search_locations)[0]
 
 

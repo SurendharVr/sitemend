@@ -12,6 +12,7 @@ Run:  python tests/test_skill.py            (from the skill root)
       python -m unittest discover -s tests  (equivalent)
 """
 import argparse
+import glob
 import json
 import os
 import shutil
@@ -4431,6 +4432,68 @@ class TestTask9(unittest.TestCase):
         worst = (2 * self.t9.BUILD_TIMEOUT + 2 * self.t9.AUDIT_TIMEOUT) / 60
         self.assertGreater(job["timeout-minutes"], worst)
         self.assertNotIn("merge-multiple", open(path, encoding="utf-8").read())
+
+    def test_a_head_without_a_preview_is_looked_at_less_often(self):
+        """A preview appears within minutes of a push. On a head that has none, plan looks
+        on every poll for its first hour, then once an hour, and once more when it is final."""
+        t9 = self.t9
+        repos = [{"repo": "o/r", "default_branch": "main", "homepage": "https://o.test"}]
+        h = "1" * 40
+        looks = []
+        base = self._api([self._pr(5, h, "2026-10-25T10:00:00Z")])
+
+        def get(path):
+            if "/commits/{0}/statuses".format(h) in path:
+                looks.append(path)
+            return base(path)
+        state = {}
+        for i in range(12):                       # 3 hours of 15-minute polls
+            state, _ = t9.plan(state, repos, self.at(), self.at(days=56), self.at(days=1, minutes=15 * i),
+                               get=get, hash_home=lambda u: "h")
+            state["prs"]["o/r#5"]["heads"][h]["folder"] = "pass"
+        self.assertEqual(len(looks), 4 + 2)          # every poll of the first hour, then hourly
+        closed = self._api([self._pr(5, h, "2026-10-25T10:00:00Z", state="closed", merged_at="2026-10-25T14:00:00Z")])
+
+        def get_closed(path):
+            if "/commits/{0}/statuses".format(h) in path:
+                looks.append(path)
+            return closed(path)
+        state, _ = t9.plan(state, repos, self.at(), self.at(days=56), self.at(days=1, minutes=185),
+                           get=get_closed, hash_home=lambda u: "h")
+        self.assertEqual(len(looks), 7, "the final head is looked at once more")
+        self.assertEqual(state["prs"]["o/r#5"]["heads"][h]["url"], "preview_unavailable")
+
+    def test_production_changes_are_the_branch_head_moving(self):
+        """A fast-forward merge can keep commit dates older than the last audit. Production
+        is audited again when the branch head moves, 2 hours after a poll first saw it."""
+        t9 = self.t9
+        repos = [{"repo": "o/r", "default_branch": "main", "homepage": "https://o.test"}]
+        old = {"sha": "a" * 40, "commit": {"committer": {"date": "2026-01-01T00:00:00Z"}}}
+        state = {"production": {"o/r": {"audited_at": "2026-10-25T00:00:00Z", "home_hash": "h",
+                                        "branch_sha": "a" * 40, "findings": "x"}}}
+        _, jobs = t9.plan(state, repos, self.at(), self.at(days=56), self.at(days=2),
+                          get=self._api([], [old]), hash_home=lambda u: "h")
+        self.assertEqual(jobs, [], "the head has not moved")
+        moved = dict(old, sha="b" * 40)            # dated long before the last audit
+        state, jobs = t9.plan(state, repos, self.at(), self.at(days=56), self.at(days=2),
+                              get=self._api([], [moved]), hash_home=lambda u: "h")
+        self.assertEqual(jobs, [])
+        _, jobs = t9.plan(state, repos, self.at(), self.at(days=56), self.at(days=2, minutes=120),
+                          get=self._api([], [moved]), hash_home=lambda u: "h")
+        self.assertEqual([(j["kind"], j["branch_sha"]) for j in jobs], [("production", "b" * 40)])
+
+    def test_a_production_audit_with_nothing_new_writes_no_new_file(self):
+        t9, data = self.t9, os.path.join(self.d, "data")
+        job = {"repo": "o/r", "kind": "production", "url": "https://o.test", "branch_sha": "c" * 40}
+        res = lambda outcome, regressions, at: {"job": job, "outcome": outcome, "reason": "", "regressions": regressions,
+                                                "findings": [], "home_hash": "h", "checked_at": at}
+        state = t9.collect({"prs": {}, "production": {}}, [res("first", [], "2026-10-25T00:00:00Z"),
+                                                          res("compared", [], "2026-10-25T03:00:00Z")], data)
+        self.assertEqual(glob.glob(os.path.join(data, "production", "o__r", "*-new.json")), [])
+        self.assertEqual(state["production"]["o/r"]["branch_sha"], "c" * 40)
+        f = {"id": "S1-HOST-MISMATCH", "severity": "critical", "pages": ["/"], "evidence": "e"}
+        t9.collect(state, [res("compared", [f], "2026-10-25T06:00:00Z")], data)
+        self.assertEqual(len(glob.glob(os.path.join(data, "production", "o__r", "*-new.json"))), 1)
 
     def test_the_workflow_keeps_strangers_code_away_from_tokens(self):
         """SECURITY: check builds drawn repositories' PRs and crawls their previews, code
