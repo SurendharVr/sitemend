@@ -225,6 +225,22 @@ def excluded_here():
     return ex
 
 
+def benchmark_owners():
+    """Addendum 2, part 2: the owners of the 15 benchmark repositories."""
+    return {e["repo"].split("/")[0].lower() for e in read_json(os.path.join(BENCH, "replay", "repos.json"), [])}
+
+
+def exclusion(repo, extra, owners):
+    """Why 2.1 (with Addendum 2) excludes repo before any lookup, or None."""
+    owner = repo.split("/")[0].lower()
+    if repo.lower() in extra or owner == B_OWNER:
+        return "excluded: the benchmark, the sweep or B's own"
+    if owner in owners:
+        # A translation of the same docs is, for this run, a site the rules were tuned on.
+        return "excluded: its owner also owns a benchmark repository (Addendum 2)"
+    return None
+
+
 def merged_prs(repo, branch):
     """PRs merged into branch in the 8 weeks before the draw date (search API, cached)."""
     q = "repo:{0} is:pr is:merged base:{1} merged:{2}..{3}".format(repo, branch, PRS_FROM, DRAW_DATE)
@@ -246,7 +262,7 @@ def preview_flag(repo, numbers, home=None):
 def cmd_draw(args):
     # Addendum 5's rules with the draw date in place of the cutoff (2.2).
     sample.SINCE, sample.CUTOFF = SINCE, UNTIL
-    after, extra = prior_ranks(), excluded_here()
+    after, extra, owners = prior_ranks(), excluded_here(), benchmark_owners()
     rows, cands = [], []
     fields = sample.DRAW_FIELDS + ["merged_prs", "preview", "homepage"]
     for stack, _, pattern, out_dir in sample.STACKS:
@@ -261,9 +277,9 @@ def cmd_draw(args):
             if found >= args.per_stack:
                 break
             base = {"stack": stack, "rank": rank, "repo": repo}
-            if repo.lower() in extra or repo.split("/")[0].lower() == B_OWNER:
-                rows.append(dict(base, outcome="ineligible",
-                                 reason="excluded: the benchmark, the sweep or B's own"))
+            why = exclusion(repo, extra, owners)
+            if why:
+                rows.append(dict(base, outcome="ineligible", reason=why))
                 continue
             row = dict(sample.evaluate(stack, repo, frame[repo], out_dir), **base)
             if row["outcome"] == "candidate":
@@ -293,13 +309,18 @@ def page_title(text):
     return " ".join(html.unescape(m.group(1)).split()) if m else None
 
 
+def https_url(homepage):
+    """A GitHub homepage in the https form 2.2 checks it in (Addendum 2, part 4)."""
+    url = homepage if "://" in homepage else "https://" + homepage
+    return "https://" + url.split("://", 1)[1]
+
+
 def homepage_check(homepage, site):
     """2.2: the GitHub homepage answers 200 over https with the build's home-page title.
     Returns a reason it fails, or None."""
     import requests
 
-    url = homepage if "://" in homepage else "https://" + homepage
-    url = "https://" + url.split("://", 1)[1]
+    url = https_url(homepage)
     try:
         r = requests.get(url, timeout=30, headers={"User-Agent": "sitemend-crawler/1.0 (+local audit)"})
     except Exception as e:
@@ -343,17 +364,32 @@ def cmd_build_check(args):
     return 0
 
 
+SAMPLE = PER_STACK * 5                # 30
+
+
+def round_robin(per, stacks):
+    """The candidates left in per, one stack at a time in the table's order, each stack's
+    in draw order."""
+    depth = max([len(per[s]) for s in stacks] + [0])
+    return [per[s][i] for i in range(depth) for s in stacks if i < len(per[s])]
+
+
 def select(cands, built):
-    """2.2's size rule. The first PER_STACK that built, per stack in draw order; then, while
-    fewer than MIN_FLAGGED have the preview flag, the next flagged ones that built, one stack
-    at a time in the table's order, until MIN_FLAGGED are flagged or MAX_TOTAL are taken."""
+    """2.2's size rule with Addendum 2, part 1. Per stack, every candidate that built, up
+    to PER_STACK, in draw order; the places left, up to SAMPLE, from the stacks that still
+    have candidates that built, one stack at a time in the table's order; then, while fewer
+    than MIN_FLAGGED have the preview flag, the next flagged ones that built, the same way,
+    until MIN_FLAGGED are flagged or MAX_TOTAL are taken. Returns (taken, short): short
+    names the stacks with fewer than PER_STACK that built."""
     stacks = [s for s, _, _, _ in sample.STACKS]
     per = {s: sorted((c for c in cands if c["stack"] == s and built.get(c["repo"]) == "ok"),
                      key=lambda c: c["rank"]) for s in stacks}
     taken = [c for s in stacks for c in per[s][:PER_STACK]]
-    rest = {s: [c for c in per[s][PER_STACK:] if c.get("preview")] for s in stacks}
-    depth = max([len(v) for v in rest.values()] + [0])
-    for c in [rest[s][i] for i in range(depth) for s in stacks if i < len(rest[s])]:
+    rest = {s: per[s][PER_STACK:] for s in stacks}
+    fill = round_robin(rest, stacks)[:max(0, SAMPLE - len(taken))]
+    taken += fill
+    rest = {s: [c for c in rest[s] if c not in fill and c.get("preview")] for s in stacks}
+    for c in round_robin(rest, stacks):
         if sum(bool(c.get("preview")) for c in taken) >= MIN_FLAGGED or len(taken) >= MAX_TOTAL:
             break
         taken.append(c)
@@ -369,12 +405,15 @@ def cmd_select(args):
         for b in read_csv(p):
             built[b["repo"]] = b["status"]
     taken, short = select(cands, built)
-    if short:
-        # 2.2 takes 6 per stack; a short stack means the draw goes on, not a smaller sample.
-        for s in short:
-            print("{0}: fewer than {1} built; draw more with a larger --per-stack".format(s, PER_STACK))
-        print("nothing written: the sample is not complete")
+    for s in short:
+        print("{0}: fewer than {1} built; its places are filled from the other stacks (Addendum 2)".format(
+            s, PER_STACK))
+    if len(taken) < SAMPLE:
+        # Addendum 2 fills to 30; fewer means the draw goes on, not a smaller sample.
+        print("only {0} built of the {1} needed: draw more with a larger --per-stack; nothing written".format(
+            len(taken), SAMPLE))
         return 1
+    taken = [dict(c, homepage=https_url(c["homepage"])) for c in taken]
     write_json(os.path.join(out, "repos.json"), taken)
     opens = (now() + datetime.timedelta(days=1)).strftime("%Y-%m-%dT00:00:00Z")
     write_json(os.path.join(out, "window.json"), {"opens": opens, "weeks": 8})
@@ -880,8 +919,15 @@ def decide(f, longest):
     return "all met: reopen outreach for the release-gate positioning (Phase 4)"
 
 
+def preview_hosted(repos):
+    """Addendum 2, part 3: the sites whose production itself is on a per-deploy host, where
+    preview-host leak detection has a known blind spot."""
+    return {e["repo"] for e in repos if (urlsplit(https_url(e["homepage"])).hostname or "").endswith(PREVIEW_HOSTS)}
+
+
 def cmd_report(args):
     state = read_json(os.path.join(args.data, "state.json"), {})
+    hosted = preview_hosted(read_json(getattr(args, "repos", None) or os.path.join(HERE, "repos.json"), []))
     gate_rows = read_csv(os.path.join(args.data, "ledger-task9.csv"))
     prod_rows = read_csv(os.path.join(args.data, "ledger-task9-production.csv"))
     f = measures(state, gate_rows, "folder")
@@ -914,6 +960,18 @@ def cmd_report(args):
         if not true:
             out.append("- None verified: rule-of-three upper bound 3 / {0} {1} = {2}.".format(
                 denom, what, "{0:.2f}%".format(300.0 / denom) if denom else "n/a"))
+        if rule == "S1-HOST-MISMATCH" and hosted:
+            # Addendum 2, part 3: the same measure without the sites whose production is on
+            # a per-deploy host.
+            keep = lambda rows: [r for r in rows if r["repo"] not in hosted]
+            m2 = sum(1 for rec in (state.get("prs") or {}).values()
+                     if rec.get("merged_at") and rec["repo"] not in hosted)
+            t2 = [r for r in keep(g) + keep(p) if r["verdict"] == "true_regression"]
+            out.append("- Without the {0} site(s) whose production is on a preview platform's host ({1}): "
+                       "{2} gate finding(s), {3} from production audits, {4} true_regression{5}.".format(
+                           len(hosted), ", ".join(sorted(hosted)), len(keep(g)), len(keep(p)), len(t2),
+                           "" if t2 else "; upper bound 3 / {0} merged PRs = {1}".format(
+                               m2, "{0:.2f}%".format(300.0 / m2) if m2 else "n/a")))
     # 3.4: a production true_regression is a miss unless the gate blocked that rule on one of
     # the PRs merged between the two audits (then it confirms the gate, and counts once).
     finals = {(rec["repo"], rec["number"]): rec.get("final_head") for rec in (state.get("prs") or {}).values()}
