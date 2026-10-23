@@ -11,9 +11,10 @@ Commit repos.json, draw.csv and window.json the same UTC day; the window opens a
 UTC the next day.
 
 The window (section 3), driven by .github/workflows/task9.yml every 15 minutes:
-  plan     reads the data branch, polls GitHub, writes the next state and the jobs to run
+  poll     folds in every finished check of earlier runs, polls GitHub, writes the next
+           state to the data branch and the jobs to run
   check    one job: a PR head in folder or url mode, or a production audit
-  collect  folds the jobs' results into the data branch
+A poll never waits for this run's checks, so a slow check delays only its own result.
 
 After it (sections 4 and 5):
   python bench/task9/task9.py ledger --data DIR       # pre-fill both ledgers; B gives verdicts
@@ -29,13 +30,17 @@ import datetime
 import glob
 import hashlib
 import html
+import io
+import ipaddress
 import json
 import os
 import random
 import re
 import shutil
+import socket
 import subprocess
 import sys
+import zipfile
 from urllib.parse import quote, urlsplit
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -58,6 +63,9 @@ PROD_WAIT = 2 * 3600                 # section 3.4
 AUDIT_TIMEOUT = 3600                 # section 3.5
 BUILD_TIMEOUT = 1800                 # as in the replay
 MAX_TRIES = 3                        # a job that never reports back, three times, is a tool failure
+IN_FLIGHT = 4 * 3600                 # a scheduled job is waited for this long (its timeout is 200 min)
+COLLECT_BACK = 24 * 3600             # runs created this long ago are still looked at for results
+WORKFLOW = "task9.yml"
 SEED = 20261017
 # The hosting platforms' per-deploy hostnames, as audit.py names them.
 PREVIEW_HOSTS = (".vercel.app", ".netlify.app", ".pages.dev", ".onrender.com",
@@ -82,12 +90,16 @@ def parse_time(s):
     return datetime.datetime.strptime(s, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=datetime.timezone.utc)
 
 
-def api(path):
-    """The live GitHub API, parsed. No cache: the window watches what is happening now."""
-    r = subprocess.run(["gh", "api", path], capture_output=True, text=True, encoding="utf-8",
-                       errors="replace")
+def api(path, raw=False, token_env=None):
+    """The live GitHub API, parsed (or raw bytes). No cache: the window watches what is
+    happening now. token_env names an environment variable whose token to use instead of
+    GH_TOKEN (this repository's own Actions API needs the job's token)."""
+    env = dict(os.environ, GH_TOKEN=os.environ[token_env]) if token_env and os.environ.get(token_env) else None
+    r = subprocess.run(["gh", "api", path], capture_output=True, env=env)
     if r.returncode != 0:
-        raise RuntimeError("gh api {0}: {1}".format(path, r.stderr.strip()[-300:]))
+        raise RuntimeError("gh api {0}: {1}".format(path, r.stderr.decode("utf-8", "replace").strip()[-300:]))
+    if raw:
+        return r.stdout
     return json.loads(r.stdout) if r.stdout.strip() else None
 
 
@@ -126,22 +138,45 @@ def slug(repo):
 
 # ---------------------------------------------------------------- previews
 
-def preview_url(get, repo, sha, pr=None):
+def public_https(url):
+    """Whether url is https on a public hostname. A preview URL comes from a deployment,
+    a status or a comment that strangers control, and the url check crawls it and commits
+    what it finds: an internal address (the runner's metadata service, a private range)
+    must never be crawled. The hostname is resolved too, so a public name pointing at a
+    private address is refused. ponytail: DNS can change between this check and the crawl."""
+    parts = urlsplit(url or "")
+    host = (parts.hostname or "").lower()
+    if parts.scheme != "https" or not host or host == "localhost" or host.endswith((".local", ".internal", ".localhost")):
+        return False
+    try:
+        ipaddress.ip_address(host)
+        return False                        # an address, not a name: no preview is served so
+    except ValueError:
+        pass
+    try:
+        addrs = {a[4][0] for a in socket.getaddrinfo(host, 443, proto=socket.IPPROTO_TCP)}
+    except OSError:
+        return False
+    return bool(addrs) and all(ipaddress.ip_address(a.split("%")[0]).is_global for a in addrs)
+
+
+def preview_url(get, repo, sha, pr=None, ok=None):
     """A preview deploy of sha, as the host reported it: a successful non-production
     deployment, a successful deploy or preview commit status, or (with pr) a bot comment
     on the PR that names the commit and links a per-deploy hostname. None when there is
-    none. ponytail: a bot comment that does not name the commit is ignored, since it may be
-    about an older head."""
+    none. Only a public https URL counts (public_https, or ok in tests). ponytail: a bot
+    comment that does not name the commit is ignored, since it may be about an older head."""
+    ok = ok or public_https
     for d in get("repos/{0}/deployments?sha={1}&per_page=20".format(repo, sha)) or []:
         if (d.get("environment") or "").lower().startswith("production"):
             continue
         for s in get("repos/{0}/deployments/{1}/statuses?per_page=20".format(repo, d["id"])) or []:
-            if s.get("state") == "success" and s.get("environment_url"):
+            if s.get("state") == "success" and ok(s.get("environment_url")):
                 return s["environment_url"]
     for s in get("repos/{0}/commits/{1}/statuses?per_page=100".format(repo, sha)) or []:
         url = s.get("target_url") or ""
         if (s.get("state") == "success" and re.search(r"deploy|preview", s.get("context") or "", re.I)
-                and url.startswith("https://") and "github.com" not in (urlsplit(url).hostname or "")):
+                and "github.com" not in (urlsplit(url).hostname or "") and ok(url)):
             return url
     if pr is not None:
         for c in get("repos/{0}/issues/{1}/comments?per_page=100".format(repo, pr)) or []:
@@ -149,7 +184,7 @@ def preview_url(get, repo, sha, pr=None):
             if (c.get("user") or {}).get("type") != "Bot" or sha[:7] not in body:
                 continue
             for url in re.findall(r"https://[^\s)\"'<>\]|]+", body):
-                if (urlsplit(url).hostname or "").endswith(PREVIEW_HOSTS):
+                if (urlsplit(url).hostname or "").endswith(PREVIEW_HOSTS) and ok(url):
                     return url
     return None
 
@@ -310,17 +345,22 @@ def select(cands, built):
 
 
 def cmd_select(args):
-    cands = read_json(os.path.join(HERE, "candidates.json"), [])
+    out = getattr(args, "out", None) or HERE
+    cands = read_json(os.path.join(out, "candidates.json"), [])
     built = {}
     for p in args.builds:
         for b in read_csv(p):
             built[b["repo"]] = b["status"]
     taken, short = select(cands, built)
-    for s in short:
-        print("{0}: fewer than {1} built; draw more with a larger --per-stack".format(s, PER_STACK))
-    write_json(os.path.join(HERE, "repos.json"), taken)
+    if short:
+        # 2.2 takes 6 per stack; a short stack means the draw goes on, not a smaller sample.
+        for s in short:
+            print("{0}: fewer than {1} built; draw more with a larger --per-stack".format(s, PER_STACK))
+        print("nothing written: the sample is not complete")
+        return 1
+    write_json(os.path.join(out, "repos.json"), taken)
     opens = (now() + datetime.timedelta(days=1)).strftime("%Y-%m-%dT00:00:00Z")
-    write_json(os.path.join(HERE, "window.json"), {"opens": opens, "weeks": 8})
+    write_json(os.path.join(out, "window.json"), {"opens": opens, "weeks": 8})
     print("{0} repositories ({1} with a preview) -> repos.json; window opens {2}".format(
         len(taken), sum(bool(c.get("preview")) for c in taken), opens))
     return 0
@@ -353,10 +393,19 @@ def pulls_in_window(get, repo, branch, opens, ends):
     return out
 
 
+def home_fingerprint(text):
+    """What changes when a new build is deployed, and not on every request: the title and
+    every src and href, which carry the build's fingerprinted asset names. A nonce, a CSRF
+    token or a rendered clock change the page's bytes on every load, and would make a
+    merge look deployed before it is."""
+    refs = sorted(set(re.findall(r"""\b(?:src|href)\s*=\s*["']([^"']+)["']""", text or "", re.I)))
+    return hashlib.sha256("\n".join([page_title(text) or ""] + refs).encode("utf-8")).hexdigest()
+
+
 def home_hash(url):
     import requests
     try:
-        return hashlib.sha256(requests.get(url, timeout=30).content).hexdigest()
+        return home_fingerprint(requests.get(url, timeout=30).text)
     except Exception:
         return None
 
@@ -377,7 +426,7 @@ def preview_due(h, t):
     return age < PREVIEW_FAST or since >= PREVIEW_SLOW
 
 
-def plan(state, repos, opens, ends, t, get=None, hash_home=None, cap=200):
+def plan(state, repos, opens, ends, t, get=None, hash_home=None, cap=200, ok=None):
     """One poll: the next state and the jobs to run. Check outcomes are only ever written
     by collect; plan records what GitHub says about each PR and what it scheduled. At most
     cap jobs (a matrix holds 256); the rest wait for the next poll, their tries untouched."""
@@ -418,6 +467,8 @@ def plan(state, repos, opens, ends, t, get=None, hash_home=None, cap=200):
             for mode in ("folder", "url"):
                 if h[mode] is not None:
                     continue
+                if h.get(mode + "_at") and (t - parse_time(h[mode + "_at"])).total_seconds() < IN_FLIGHT:
+                    continue                   # scheduled, and may still be running
                 if h[mode + "_tries"] >= MAX_TRIES:
                     h[mode] = "tool_failure"
                     h[mode + "_reason"] = "the job did not report back {0} times".format(MAX_TRIES)
@@ -428,7 +479,7 @@ def plan(state, repos, opens, ends, t, get=None, hash_home=None, cap=200):
                 if mode == "url":
                     if not final and not preview_due(h, t):
                         continue
-                    url = preview_url(get, repo, head, p["number"])
+                    url = preview_url(get, repo, head, p["number"], ok)
                     h["url_looked_at"] = stamp(t)
                     if not url:
                         if final:
@@ -436,9 +487,12 @@ def plan(state, repos, opens, ends, t, get=None, hash_home=None, cap=200):
                             h["url_reason"] = "no preview found for the head"
                         continue
                 h[mode + "_tries"] += 1
+                h[mode + "_at"] = stamp(t)
                 jobs.append(dict(base_job, kind=mode, url=url or ""))
         # 3.4: production at window open, then after each merge, once it changed or 2 h on.
-        if over:
+        # After the end, only a change a poll saw before it is still audited.
+        seen = state.setdefault("production_seen", {})
+        if over and not (repo in seen and parse_time(seen[repo]["at"]) < ends):
             continue
         last = prod.get(repo)
         # The branch head, not commit dates: a fast-forward or rebase merge can keep dates
@@ -458,37 +512,25 @@ def plan(state, repos, opens, ends, t, get=None, hash_home=None, cap=200):
             tries.update(sha=branch_sha, n=0)
         if tries["n"] >= MAX_TRIES:
             continue
+        if tries.get("at") and (t - parse_time(tries["at"])).total_seconds() < IN_FLIGHT:
+            continue                           # scheduled, and may still be running
         if last is None:
             due = True
         elif branch_sha == last.get("branch_sha"):
             due = False
         else:
-            # 3.4's 2 hours run from when a poll first saw the new head, so at most one
-            # poll (15 minutes) after the merge itself.
-            seen = state.setdefault("production_seen", {})
-            if seen.get(repo, {}).get("sha") != branch_sha:
+            # 3.4's 2 hours run from when a poll first saw a change not yet audited, so at
+            # most one poll (15 minutes) after that merge. A later merge does not restart
+            # them: the audit then covers every merge since the last one.
+            if repo not in seen:
                 seen[repo] = {"sha": branch_sha, "at": stamp(t)}
             due = ((t - parse_time(seen[repo]["at"])).total_seconds() >= PROD_WAIT
                    or hash_home(e["homepage"]) != last.get("home_hash"))
         if due:
             tries["n"] += 1
+            tries["at"] = stamp(t)
             jobs.append(job)
     return state, jobs
-
-
-def cmd_plan(args):
-    opens, ends = window()
-    repos = read_json(os.path.join(HERE, "repos.json"), [])
-    state = read_json(os.path.join(args.data, "state.json"), {})
-    jobs = []
-    if repos and opens:
-        state, jobs = plan(state, repos, opens, ends, now())
-    for i, j in enumerate(jobs):
-        j["id"] = "{0}-{1}".format(i, slug(j["repo"]))
-    write_json(os.path.join(args.out, "snapshot.json"), state)
-    write_json(os.path.join(args.out, "jobs.json"), jobs)
-    print(json.dumps(jobs))
-    return 0
 
 
 def compact(f):
@@ -610,8 +652,10 @@ def collect(state, results, data):
                 for k in ("production_tries", "production_seen"):
                     state.get(k, {}).pop(job["repo"], None)
             continue
-        rec = state["prs"]["{0}#{1}".format(job["repo"], job["pr"])]
-        h = rec["heads"][job["head"]]
+        rec = state.get("prs", {}).get("{0}#{1}".format(job["repo"], job["pr"]))
+        h = rec and rec["heads"].get(job["head"])
+        if not h:
+            continue
         h[job["kind"]] = res["outcome"]
         h[job["kind"] + "_reason"] = res["reason"]
         write_json(os.path.join(data, "findings", slug(job["repo"]), "{0}-{1}-{2}.json".format(
@@ -630,47 +674,80 @@ OUTCOMES = {"folder": {"pass", "fail", "build_failed", "tool_failure"},
             "production": {"first", "compared", "tool_failure"}}
 
 
-def trusted_results(incoming):
-    """(state, results) from one run's artifacts, each downloaded to its own folder.
+def valid(res, job):
+    """Whether a check's result may be filed: it describes exactly the job the poll gave
+    that id, with an outcome of that mode, and lists where lists belong."""
+    return (isinstance(res, dict) and res.get("job") == job
+            and res.get("outcome") in OUTCOMES[job["kind"]]
+            and isinstance(res.get("regressions"), list) and isinstance(res.get("advisory", []), list)
+            and all(isinstance(f, dict) for f in res["regressions"])
+            and isinstance(res.get("findings", []), (list, type(None)))
+            and isinstance(res.get("reason", ""), str) and isinstance(res.get("checked_at"), str))
 
-    The plan artifact comes from plan, which runs only this repository's code; each
-    result artifact comes from a check job that has just run a stranger's build, which can
-    write anything into it. So the snapshot and the job list are read only from
-    task9-plan, and a check artifact contributes exactly one file, result-<id>.json from
-    task9-result-<id>, accepted only if it describes the job plan gave that id, with a known
-    outcome and lists where lists belong. Everything else in it is ignored. A build can
-    still lie about its own job's result; it cannot touch any other job, or the state."""
-    plan_dir = os.path.join(incoming, "task9-plan")
-    state = read_json(os.path.join(plan_dir, "snapshot.json"))
-    jobs = read_json(os.path.join(plan_dir, "jobs.json"), [])
+
+def member(blob, name):
+    """One named file from an artifact's zip, parsed; None if it is not there. Nothing else
+    in the zip is read or extracted, so a path in it can never reach the filesystem."""
+    try:
+        return json.loads(zipfile.ZipFile(io.BytesIO(blob)).read(name).decode("utf-8"))
+    except (KeyError, ValueError, zipfile.BadZipFile):
+        return None
+
+
+def collect_new(state, data, t, get, fetch, repo=None):
+    """File every check result of the last COLLECT_BACK of runs not filed yet.
+
+    A check artifact comes from a job that has just run a stranger's build, which can
+    write anything into it. So each run's job list is read from its task9-plan artifact,
+    which the poll job uploads before any check starts; a check contributes exactly one
+    file, result-<id>.json from task9-result-<id>, filed only if it describes the job the
+    poll gave that id (valid). An artifact is filed once (its id is remembered), whether
+    its run has finished or not. A build can still lie about its own job's result; it
+    cannot touch any other job, or the state."""
+    repo = repo or os.environ.get("GITHUB_REPOSITORY", "")
+    done = set(state.get("collected", []))
+    since = stamp(t - datetime.timedelta(seconds=COLLECT_BACK))
+    runs = (get("repos/{0}/actions/workflows/{1}/runs?created=%3E%3D{2}&per_page=100".format(repo, WORKFLOW, since))
+            or {}).get("workflow_runs", [])
     results, rejected = [], []
-    for job in jobs:
-        res = read_json(os.path.join(incoming, "task9-result-" + job["id"], "result-{0}.json".format(job["id"])))
-        if res is None:
-            continue                       # the job did not finish; plan tries it again
-        ok = (isinstance(res, dict) and res.get("job") == job
-              and res.get("outcome") in OUTCOMES[job["kind"]]
-              and isinstance(res.get("regressions"), list) and isinstance(res.get("advisory", []), list)
-              and all(isinstance(f, dict) for f in res["regressions"])
-              and isinstance(res.get("findings", []), (list, type(None)))
-              and isinstance(res.get("reason", ""), str) and isinstance(res.get("checked_at"), str))
-        if ok:
-            results.append(dict(res, job=job))
-        else:
-            rejected.append(job["id"])
+    for run in sorted(runs, key=lambda r: r["id"]):
+        arts = {a["name"]: a for a in (get("repos/{0}/actions/runs/{1}/artifacts?per_page=100".format(repo, run["id"]))
+                                       or {}).get("artifacts", []) if not a.get("expired")}
+        plan_art = arts.get("task9-plan")
+        jobs = member(fetch(plan_art["id"]), "jobs.json") if plan_art else None
+        for job in jobs or []:
+            art = arts.get("task9-result-" + job["id"])
+            if not art or art["id"] in done:
+                continue
+            res = member(fetch(art["id"]), "result-{0}.json".format(job["id"]))
+            done.add(art["id"])
+            if valid(res, job):
+                results.append(dict(res, job=job))
+            else:
+                rejected.append("{0}/{1}".format(run["id"], job["id"]))
+    state = collect(state, results, data)
+    state["collected"] = sorted(done)[-20000:]
     return state, results, rejected
 
 
-def cmd_collect(args):
-    if not read_json(os.path.join(HERE, "repos.json")):
-        print("no draw yet: nothing to collect")
-        return 0
-    state, results, rejected = trusted_results(args.incoming)
-    if state is None:
-        print("no plan artifact: nothing to collect")
-        return 0
-    collect(state, results, args.data)
-    print("{0} result(s) collected; rejected: {1}".format(len(results), ", ".join(rejected) or "none"))
+def cmd_poll(args):
+    opens, ends = window()
+    repos = read_json(os.path.join(HERE, "repos.json"), [])
+    jobs = []
+    if repos and opens:
+        t = now()
+        state = read_json(os.path.join(args.data, "state.json"), {})
+        get_actions = lambda path: api(path, token_env="TASK9_ACTIONS_TOKEN")
+        fetch = lambda aid: api("repos/{0}/actions/artifacts/{1}/zip".format(
+            os.environ.get("GITHUB_REPOSITORY", ""), aid), raw=True, token_env="TASK9_ACTIONS_TOKEN")
+        state, results, rejected = collect_new(state, args.data, t, get_actions, fetch)
+        print("{0} result(s) filed; rejected: {1}".format(len(results), ", ".join(rejected) or "none"), file=sys.stderr)
+        state, jobs = plan(state, repos, opens, ends, t)
+        for i, j in enumerate(jobs):
+            j["id"] = "{0}-{1}".format(i, slug(j["repo"]))
+        write_json(os.path.join(args.data, "state.json"), state)
+    write_json(os.path.join(args.out, "jobs.json"), jobs)
+    print(json.dumps(jobs))
     return 0
 
 
@@ -859,19 +936,18 @@ def main(argv=None):
     b.add_argument("--out")
     s = sub.add_parser("select")
     s.add_argument("--builds", nargs="+", required=True)
-    for name in ("plan", "check", "collect", "ledger", "report"):
+    for name in ("poll", "check", "ledger", "report"):
         p = sub.add_parser(name)
         p.add_argument("--data", default=os.path.join(HERE, "data"), help="a checkout of the data branch")
-    sub.choices["plan"].add_argument("--out", default=os.path.join(HERE, "plan"))
+    sub.choices["poll"].add_argument("--out", default=os.path.join(HERE, "plan"))
     sub.choices["check"].add_argument("--job", required=True, help="one job from plan, as JSON")
     sub.choices["check"].add_argument("--work", default=os.path.join(HERE, "work"))
     sub.choices["check"].add_argument("--out", default=os.path.join(HERE, "result"))
     sub.choices["check"].add_argument("--scripts", help="sitemend's scripts folder (default: the installed 1.9.1)")
-    sub.choices["collect"].add_argument("--incoming", required=True, help="the downloaded artifacts")
     sub.choices["ledger"].add_argument("--second-look", action="store_true")
     args = ap.parse_args(argv)
-    return {"draw": cmd_draw, "build-check": cmd_build_check, "select": cmd_select, "plan": cmd_plan,
-            "check": cmd_check, "collect": cmd_collect, "ledger": cmd_ledger, "report": cmd_report}[args.cmd](args)
+    return {"draw": cmd_draw, "build-check": cmd_build_check, "select": cmd_select, "poll": cmd_poll,
+            "check": cmd_check, "ledger": cmd_ledger, "report": cmd_report}[args.cmd](args)
 
 
 if __name__ == "__main__":

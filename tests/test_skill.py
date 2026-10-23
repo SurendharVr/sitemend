@@ -4167,6 +4167,9 @@ class TestTask9(unittest.TestCase):
         self.t9 = _bench_module("task9", "task9.py")
         if self.t9 is None:
             raise unittest.SkipTest("bench/ is not shipped in the sdist")
+        # No test resolves a hostname: the real check is tested on its own.
+        self.real_public_https = self.t9.public_https
+        self.t9.public_https = lambda u: (u or "").startswith("https://")
         self.d = tempfile.mkdtemp(prefix="sitemend-task9-")
         self.addCleanup(shutil.rmtree, self.d, True)
 
@@ -4249,6 +4252,11 @@ class TestTask9(unittest.TestCase):
         # collect records the folder result; a new head arrives with a preview; then the PR closes.
         state["prs"]["o/r#5"]["heads"][h1]["folder"] = "pass"
         state["production"]["o/r"] = {"audited_at": "2026-10-25T10:00:00Z", "home_hash": "h", "findings": "x"}
+        state["production_tries"].pop("o/r")          # as collect does when an audit succeeds
+        # The first poll's jobs are in flight: the next poll does not schedule them again.
+        _, again = t9.plan(state, repos, opens, ends, self.at(days=1, minutes=605),
+                           get=self._api(pulls, commits), hash_home=lambda u: "h")
+        self.assertEqual(again, [])
         pulls[0] = self._pr(5, h2, "2026-10-25T10:00:00Z")
         state, jobs = t9.plan(state, repos, opens, ends, self.at(days=1, minutes=615),
                               get=self._api(pulls, previews=(h2,)), hash_home=lambda u: "h")
@@ -4264,8 +4272,8 @@ class TestTask9(unittest.TestCase):
                           get=self._api(pulls, merge, previews=(h2,)), hash_home=lambda u: "changed")
         self.assertIn("production", [j["kind"] for j in jobs])
         # A job that never reports back is tried 3 times, then counts as a tool failure.
-        for _ in range(3):
-            state, _ = t9.plan(state, repos, opens, ends, self.at(days=1, minutes=640),
+        for i in range(3):
+            state, _ = t9.plan(state, repos, opens, ends, self.at(days=1, minutes=900 + 300 * i),
                                get=self._api(pulls, previews=(h2,)), hash_home=lambda u: "h")
         self.assertEqual(state["prs"]["o/r#5"]["heads"][h2]["folder"], "tool_failure")
 
@@ -4339,35 +4347,60 @@ class TestTask9(unittest.TestCase):
         self.assertEqual(len(look), round(0.2 * 2))
         self.assertTrue(all(not r["verdict"] for r in look), "the first verdict must not be shown")
 
+    def _zip(self, files):
+        import io
+        import zipfile
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as z:
+            for name, doc in files.items():
+                z.writestr(name, json.dumps(doc))
+        return buf.getvalue()
+
     def test_collect_reads_only_each_jobs_own_artifact(self):
-        """SECURITY: a check artifact is a folder a stranger's build could write into. It
-        may not replace the plan's snapshot, add a result for another job, or report a job
-        plan never gave it; only result-<id>.json in task9-result-<id> is read, and only if
-        it describes that job."""
-        t9, inc = self.t9, os.path.join(self.d, "incoming")
+        """SECURITY: a check artifact is a zip a stranger's build could fill. Only the
+        job's own result-<id>.json in task9-result-<id> is read, and only if it describes
+        the job the poll gave that id; nothing in a zip is extracted. A result is filed
+        once, even if its run is still going."""
+        t9, data = self.t9, os.path.join(self.d, "data")
         h = "1" * 40
         jobs = [{"id": "0-o__r", "kind": "folder", "repo": "o/r", "pr": 1, "head": h, "base": "b" * 40, "url": ""},
                 {"id": "1-o__r", "kind": "folder", "repo": "o/r", "pr": 2, "head": "2" * 40, "base": "b" * 40, "url": ""}]
-        snapshot = {"prs": {"o/r#1": {"repo": "o/r", "number": 1, "heads": {h: {"folder": None}}}}}
-        t9.write_json(os.path.join(inc, "task9-plan", "snapshot.json"), snapshot)
-        t9.write_json(os.path.join(inc, "task9-plan", "jobs.json"), jobs)
+        state = {"prs": {"o/r#1": {"repo": "o/r", "number": 1, "heads": {h: {"folder": None}}},
+                         "o/r#2": {"repo": "o/r", "number": 2, "heads": {"2" * 40: {"folder": None}}}}}
         good = {"job": jobs[0], "outcome": "fail", "reason": "", "regressions": [], "advisory": [],
                 "checked_at": "2026-10-25T00:00:00Z"}
-        mine = os.path.join(inc, "task9-result-0-o__r")
-        t9.write_json(os.path.join(mine, "result-0-o__r.json"), good)
-        # Planted by the build in its own artifact: another job's result and a new state.
-        t9.write_json(os.path.join(mine, "result-1-o__r.json"), dict(good, job=jobs[1], outcome="pass"))
-        t9.write_json(os.path.join(mine, "snapshot.json"), {"prs": {}})
-        # Job 1's own artifact claims to be about another PR.
-        t9.write_json(os.path.join(inc, "task9-result-1-o__r", "result-1-o__r.json"),
-                      dict(good, job=dict(jobs[1], pr=7)))
-        state, results, rejected = t9.trusted_results(inc)
-        self.assertEqual(state, snapshot)
+        blobs = {1: self._zip({"jobs.json": jobs}),
+                 # Job 0's own result, plus a planted result for job 1 and a path outside.
+                 2: self._zip({"result-0-o__r.json": good,
+                               "result-1-o__r.json": dict(good, job=jobs[1], outcome="pass"),
+                               "../../state.json": {"prs": {}}}),
+                 # Job 1's artifact claims to be about another PR.
+                 3: self._zip({"result-1-o__r.json": dict(good, job=dict(jobs[1], pr=7))})}
+        api = {"repos/me/t/actions/workflows/task9.yml/runs": {"workflow_runs": [{"id": 9}]},
+               "repos/me/t/actions/runs/9/artifacts?per_page=100": {"artifacts": [
+                   {"id": 1, "name": "task9-plan"}, {"id": 2, "name": "task9-result-0-o__r"},
+                   {"id": 3, "name": "task9-result-1-o__r"}]}}
+        get = lambda path: api.get(path.split("?created")[0], api.get(path))
+        state, results, rejected = t9.collect_new(state, data, self.at(days=1), get, blobs.get, repo="me/t")
         self.assertEqual([r["job"]["id"] for r in results], ["0-o__r"])
-        self.assertEqual(rejected, ["1-o__r"])
-        # An outcome that is not one of the mode's own is rejected too.
-        t9.write_json(os.path.join(mine, "result-0-o__r.json"), dict(good, outcome="first"))
-        self.assertEqual(t9.trusted_results(inc)[2], ["0-o__r", "1-o__r"])
+        self.assertEqual(rejected, ["9/1-o__r"])
+        self.assertEqual(state["prs"]["o/r#1"]["heads"][h]["folder"], "fail")
+        self.assertIsNone(state["prs"]["o/r#2"]["heads"]["2" * 40]["folder"])
+        self.assertFalse(os.path.exists(os.path.join(self.d, "state.json")))
+        _, again, _ = t9.collect_new(state, data, self.at(days=1), get, blobs.get, repo="me/t")
+        self.assertEqual(again, [], "an artifact is filed once")
+
+    def test_a_preview_url_must_be_public_https(self):
+        """SECURITY: preview URLs come from deployments, statuses and comments strangers
+        control; an internal address must never be crawled and committed."""
+        ok = self.real_public_https
+        for url in ("http://x.vercel.app/", "https://169.254.169.254/latest/", "https://10.0.0.5/",
+                    "https://[::1]/", "https://localhost/", "https://db.internal/", "", None):
+            self.assertFalse(ok(url), url)
+        api = {"repos/o/r/deployments?sha={0}&per_page=20".format("a" * 40): [{"id": 1, "environment": "Preview"}],
+               "repos/o/r/deployments/1/statuses?per_page=20": [{"state": "success",
+                                                                 "environment_url": "http://169.254.169.254/"}]}
+        self.assertIsNone(self.t9.preview_url(api.get, "o/r", "a" * 40, ok=ok))
 
     def test_a_failing_production_audit_is_tried_three_times_per_branch_state(self):
         t9 = self.t9
@@ -4375,12 +4408,12 @@ class TestTask9(unittest.TestCase):
         commits = [{"sha": "c" * 40, "commit": {"committer": {"date": "2026-10-25T09:00:00Z"}}}]
         state, scheduled = {}, 0
         for i in range(5):        # no result ever comes back: collect never records an audit
-            state, jobs = t9.plan(state, repos, self.at(), self.at(days=56), self.at(days=1, minutes=15 * i),
+            state, jobs = t9.plan(state, repos, self.at(), self.at(days=56), self.at(days=1, minutes=300 * i),
                                   get=self._api([], commits), hash_home=lambda u: "h")
             scheduled += sum(j["kind"] == "production" for j in jobs)
         self.assertEqual(scheduled, 3)
         commits = [{"sha": "d" * 40, "commit": {"committer": {"date": "2026-10-26T09:00:00Z"}}}] + commits
-        _, jobs = t9.plan(state, repos, self.at(), self.at(days=56), self.at(days=2),
+        _, jobs = t9.plan(state, repos, self.at(), self.at(days=56), self.at(days=3),
                           get=self._api([], commits), hash_home=lambda u: "h")
         self.assertEqual([j["kind"] for j in jobs], ["production"], "a new branch state is tried again")
 
@@ -4432,6 +4465,12 @@ class TestTask9(unittest.TestCase):
         worst = (2 * self.t9.BUILD_TIMEOUT + 2 * self.t9.AUDIT_TIMEOUT) / 60
         self.assertGreater(job["timeout-minutes"], worst)
         self.assertNotIn("merge-multiple", open(path, encoding="utf-8").read())
+        # A poll never waits for checks: only the poll job is in the concurrency group.
+        with open(path, encoding="utf-8") as fh:
+            doc = yaml.safe_load(fh)
+        self.assertNotIn("concurrency", doc)
+        self.assertNotIn("concurrency", job)
+        self.assertEqual(doc["jobs"]["poll"]["concurrency"]["group"], "task9-poll")
 
     def test_a_head_without_a_preview_is_looked_at_less_often(self):
         """A preview appears within minutes of a push. On a head that has none, plan looks
@@ -4495,6 +4534,59 @@ class TestTask9(unittest.TestCase):
         t9.collect(state, [res("compared", [f], "2026-10-25T06:00:00Z")], data)
         self.assertEqual(len(glob.glob(os.path.join(data, "production", "o__r", "*-new.json"))), 1)
 
+    def test_a_later_merge_does_not_restart_productions_wait(self):
+        t9 = self.t9
+        repos = [{"repo": "o/r", "default_branch": "main", "homepage": "https://o.test"}]
+        c = lambda sha: [{"sha": sha * 40, "commit": {"committer": {"date": "2026-10-25T00:00:00Z"}}}]
+        state = {"production": {"o/r": {"audited_at": "2026-10-25T00:00:00Z", "home_hash": "h",
+                                        "branch_sha": "a" * 40, "findings": "x"}}}
+        state, _ = t9.plan(state, repos, self.at(), self.at(days=56), self.at(days=2),
+                           get=self._api([], c("b")), hash_home=lambda u: "h")
+        state, jobs = t9.plan(state, repos, self.at(), self.at(days=56), self.at(days=2, minutes=90),
+                              get=self._api([], c("d")), hash_home=lambda u: "h")
+        self.assertEqual(jobs, [])
+        _, jobs = t9.plan(state, repos, self.at(), self.at(days=56), self.at(days=2, minutes=120),
+                          get=self._api([], c("e")), hash_home=lambda u: "h")
+        self.assertEqual([j["branch_sha"] for j in jobs], ["e" * 40], "2 hours from the first merge seen")
+
+    def test_the_home_page_fingerprint_ignores_per_request_tokens(self):
+        f = self.t9.home_fingerprint
+        page = '<title>T</title><script nonce="{0}">t={1}</script><link href="/app.{2}.css"><p>{1}</p>'
+        self.assertEqual(f(page.format("n1", "10:01", "a1")), f(page.format("n2", "10:02", "a1")))
+        self.assertNotEqual(f(page.format("n1", "10:01", "a1")), f(page.format("n1", "10:01", "b2")))
+
+    def test_a_merge_just_before_the_end_is_still_audited(self):
+        """3.4 covers every merge in the window: one seen before the end is audited after
+        it, once its 2 hours are up; one first seen after the end is not."""
+        t9 = self.t9
+        repos = [{"repo": "o/r", "default_branch": "main", "homepage": "https://o.test"}]
+        ends = self.at(days=56)
+        c = lambda sha: [{"sha": sha * 40, "commit": {"committer": {"date": "2026-10-25T00:00:00Z"}}}]
+        base = {"production": {"o/r": {"audited_at": "2026-10-25T00:00:00Z", "home_hash": "h",
+                                       "branch_sha": "a" * 40, "findings": "x"}}}
+        state, _ = t9.plan(base, repos, self.at(), ends, self.at(days=56, minutes=-30),
+                           get=self._api([], c("b")), hash_home=lambda u: "h")
+        _, jobs = t9.plan(state, repos, self.at(), ends, self.at(days=56, minutes=90),
+                          get=self._api([], c("b")), hash_home=lambda u: "h")
+        self.assertEqual([j["kind"] for j in jobs], ["production"])
+        _, jobs = t9.plan(base, repos, self.at(), ends, self.at(days=56, minutes=200),
+                          get=self._api([], c("b")), hash_home=lambda u: "h")
+        self.assertEqual(jobs, [], "a change first seen after the end is not audited")
+
+    def test_select_writes_nothing_while_a_stack_is_short(self):
+        t9, out = self.t9, os.path.join(self.d, "draw")
+        cands = [{"repo": "{0}/r{1}".format(s, i), "stack": s, "rank": i, "preview": ""}
+                 for s, _, _, _ in t9.sample.STACKS for i in range(1, 7)]
+        t9.write_json(os.path.join(out, "candidates.json"), cands)
+        builds = os.path.join(out, "builds.csv")
+        t9.write_csv(builds, ["repo", "status"], [{"repo": c["repo"], "status": "build_failed" if c["repo"] == "hugo/r3" else "ok"}
+                                                  for c in cands])
+        self.assertEqual(t9.cmd_select(argparse.Namespace(builds=[builds], out=out)), 1)
+        self.assertFalse(os.path.exists(os.path.join(out, "repos.json")))
+        t9.write_csv(builds, ["repo", "status"], [{"repo": c["repo"], "status": "ok"} for c in cands])
+        self.assertEqual(t9.cmd_select(argparse.Namespace(builds=[builds], out=out)), 0)
+        self.assertEqual(len(t9.read_json(os.path.join(out, "repos.json"))), 30)
+
     def test_the_workflow_keeps_strangers_code_away_from_tokens(self):
         """SECURITY: check builds drawn repositories' PRs and crawls their previews, code
         and content strangers wrote. It must get no secret, no write permission and no saved
@@ -4509,7 +4601,7 @@ class TestTask9(unittest.TestCase):
         jobs = yaml.safe_load(text)["jobs"]
         self.assertEqual(yaml.safe_load(text)["permissions"], {"contents": "read"})
         writers = [n for n, j in jobs.items() if (j.get("permissions") or {}).get("contents") == "write"]
-        self.assertEqual(writers, ["collect"])
+        self.assertEqual(writers, ["poll"])
         for name in ("check", "build-check"):
             job = jobs[name]
             self.assertNotIn("secrets.", json.dumps(job), name)
