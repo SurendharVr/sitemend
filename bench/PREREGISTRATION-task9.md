@@ -597,10 +597,10 @@ length, verdicts, thresholds and decision rules.
 
 Decided by (B): SurendharVr. Date: 2026-10-24.
 
-## Addendum 4: postpone the window and widen the sample (draft)
+## Addendum 4: postpone the window and widen the sample (2026-10-24, before the window)
 
-**Status:** draft, written by Claude on 2026-10-24. Not signed. Fields marked `____` are for
-B; the suggested value beside each one is for reference only.
+**Status:** signed by SurendharVr on 2026-10-24. Written by Claude on 2026-10-24; every
+choice below was proposed by Claude and accepted as written.
 
 **When.** After `select` wrote the 16-site sample and `window.json` (#107, merged at 04:54
 UTC on 2026-10-24), and before the window opens at 00:00 UTC on 2026-10-25. No PR has been
@@ -613,18 +613,18 @@ results, the most GitHub returns for one query: Docusaurus, Astro, VitePress and
 could find were never in the frame. A frame that gets past the cap can supply more sites by
 the same rules.
 
-**1. Postpone the window.** Decided: ____ (suggested: the window does not open on
+**1. Postpone the window.** Decided: the window does not open on
 2026-10-25. It opens at 00:00 UTC on the day after the widened sample's `repos.json` and
 `window.json` are committed, and runs 8 weeks from then. `window.json` is removed until
-then, so the task9 workflow's polls do nothing.)
+then, so the task9 workflow's polls do nothing.
 
 This takes effect only if it is on `main` before 2026-10-25T00:00:00Z. If it is merged
 later, the window has already opened with the 16: this addendum then records only the
 finding about the first frame, parts 1 to 5 lapse, and the 16 are the sample as Addendum 3
 says. Adding sites after that would need a further addendum, as a separate group.
 
-**2. A second frame.** Decided: ____ (suggested: the same five stacks and code searches as
-Addendum 5, each split by file size so that no slice reaches the cap.)
+**2. A second frame.** Decided: the same five stacks and code searches as Addendum 5, each
+split by file size so that no slice reaches the cap.
 - **Splitting:** each search runs over size ranges in bytes, starting at `size:0..1000`,
   `size:1001..3000`, `size:3001..10000` and `size:>10000`. A slice that returns 1,000 results
   is halved and searched again, until every slice returns fewer.
@@ -635,8 +635,7 @@ Addendum 5, each split by file size so that no slice reaches the cap.)
 - **Limitation:** code search still returns only what GitHub has indexed and ranks, so the
   frame is still not every site. That is stated in the report, as for the first frame.
 
-**3. The draw from it.** Decided: ____ (suggested: by the same rules, with these
-differences.)
+**3. The draw from it.** Decided: by the same rules, with these differences.
 - **Leave out first:** every repository in the first frame, in any stack, so that no
   repository is looked at twice.
 - **Order:** sorted by `owner/name`, then shuffled with a fresh `random.Random(20261017)` per
@@ -648,7 +647,7 @@ differences.)
   preview checks are read on the day the draw runs, as before.
 - **Recorded in** `bench/task9/draw2.csv` and `candidates2.json`.
 
-**4. Build check and selection.** Decided: ____ (suggested: the second draw's candidates are
+**4. Build check and selection.** Decided: the second draw's candidates are
 build-checked as 2.2 says. Then `select` works in this order:
 - **The 16 first.** All 16 already selected stay in the sample, whatever their stack:
   Docusaurus 6, Astro 8, VitePress 1, Next.js 1.
@@ -659,11 +658,11 @@ build-checked as 2.2 says. Then `select` works in this order:
   a time in the table's order.
 - **Preview top-up:** to 10 flagged, at most 40 in all, from new candidates only.
 
-No site of the 16 is ever dropped.)
+No site of the 16 is ever dropped.
 
-**5. If the second frame still falls short of 30.** Decided: ____ (suggested: once every
-slice of the second frame has been drawn to its end, the sample is everyone who built, as
-in Addendum 3, and the window opens. No third frame.)
+**5. If the second frame still falls short of 30.** Decided: once every slice of the second
+frame has been drawn to its end, the sample is everyone who built, as in Addendum 3, and the
+window opens. No third frame.
 
 **6. What this replaces, and what it keeps:**
 - **Replaces Addendum 3, part 1:** "the sample is the 16". The sample is the 16 plus part
@@ -693,4 +692,4 @@ widened after the first selection, and why.
   each site marked with its frame;
 - `report`: each frame's figures beside the pooled ones (part 7).
 
-Decided by (B): ____. Date: ____.
+Decided by (B): SurendharVr. Date: 2026-10-24.
