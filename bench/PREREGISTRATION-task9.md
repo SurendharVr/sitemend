@@ -768,4 +768,16 @@ package description and the Marketplace listing.
 pre-registration document that decides anything about the product. The replay and seeded
 benchmarks continue as release checks.
 
+**6. Section 6, with outreach already open.** Section 6's first rule ("all met: reopen
+outreach ... the only result that reopens it") is superseded by part 3: outreach is
+already open. Every other rule in section 6 stays in force, as a brake on that outreach:
+- precision fails: outreach stops, and the rules are fixed under `RELEASING.md`;
+- tool failures above the threshold: outreach stops until they are fixed and re-measured;
+- frequency fails: sitemend is repositioned as a pre-launch audit;
+- the claims rule (preview-host leaks, soft 404s) applies to all public material.
+
+Section 2.3's no-contact rule stays. In addition, there is no outreach to any repository
+in `bench/task9/repos.json`, or to the next repositories in draw order that a fresh draw
+would use (`bench/sample/order-*.json`), so a future prospective run stays uncontaminated.
+
 Decided by (B): ____________. Date: ____________.
