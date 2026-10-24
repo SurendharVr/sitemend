@@ -5062,5 +5062,49 @@ class TestSweepReport(unittest.TestCase):
         self.assertNotIn("S3-Y", md)
 
 
+class TestBlocksColumn(unittest.TestCase):
+    """docs/blocks.py generates the README's Blocks? column. It once read S4-CWV-POOR's
+    severity, which comes from a loop tuple, as nothing and reported "no", though LCP and
+    CLS are high and block. A value it cannot read must stop it, not become "no"."""
+
+    def setUp(self):
+        import importlib.util
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "docs", "blocks.py")
+        if not os.path.isfile(path):
+            self.skipTest("docs/ is not in the sdist")
+        spec = importlib.util.spec_from_file_location("blocks", path)
+        self.B = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(self.B)
+
+    def test_every_rule_resolves(self):
+        import re
+        ids = set()
+        for name, pat in (("audit.py", r'finding\(\s*"(S\d-[A-Z0-9-]+)"'),
+                          ("schema_check.py", r'"id":\s*"(S\d-[A-Z0-9-]+)"')):
+            with open(os.path.join(self.B.SCRIPTS, name), encoding="utf-8") as fh:
+                ids |= set(re.findall(pat, fh.read()))
+        v = self.B.variants()
+        self.assertGreater(len(ids), 50)
+        self.assertEqual(sorted(ids - set(v)), [])
+
+    def test_loop_tuple_severity(self):
+        v = self.B.variants()
+        self.assertEqual(v["S4-CWV-POOR"], {("high", "high"), ("medium", "high")})
+        self.assertEqual(self.B.row(v["S4-CWV-POOR"]),
+                         ("high, high (yes); medium, high (no)", "depends on severity"))
+
+    def test_unresolvable_exits(self):
+        d = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, d)
+        with open(os.path.join(d, "audit.py"), "w", encoding="utf-8") as fh:
+            fh.write('sev = pick()\nfinding("S9-X", 1, sev, "m", [])\n')
+        with open(os.path.join(d, "schema_check.py"), "w", encoding="utf-8") as fh:
+            fh.write("")
+        self.B.SCRIPTS = d
+        with self.assertRaises(SystemExit) as cm:
+            self.B.variants()
+        self.assertIn("audit.py:2: S9-X", str(cm.exception.code))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
