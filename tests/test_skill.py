@@ -5183,6 +5183,23 @@ class TestBlocksColumn(unittest.TestCase):
         self.assertGreater(len(ids), 50)
         self.assertEqual(sorted(ids - set(v)), [])
 
+    def test_every_rule_in_the_readme_tables_resolves(self):
+        """A rule in "What breaks" that blocks.py cannot see has a Blocks? cell nobody can
+        regenerate. S1-HOST-DRIFT, built in verify.py, was one."""
+        import re
+        with open(os.path.join(self.B.SCRIPTS, "..", "README.md"), encoding="utf-8") as fh:
+            text = fh.read()
+        section = text.split("## What breaks", 1)[1].split("\n## ", 1)[0]
+        ids = set(re.findall(r"`(S\d-[A-Z0-9-]+)`", section))
+        self.assertIn("S1-HOST-DRIFT", ids)
+        self.assertEqual(sorted(ids - set(self.B.variants())), [])
+
+    def test_paired_ternaries_are_not_crossed(self):
+        v = self.B.variants()
+        self.assertEqual(v["S1-HOST-DRIFT"], {("critical", "high"), ("high", "medium")})
+        self.assertEqual(self.B.row(v["S1-HOST-DRIFT"]),
+                         ("critical, high (yes); high, medium (no)", "depends on severity"))
+
     def test_loop_tuple_severity(self):
         v = self.B.variants()
         self.assertEqual(v["S4-CWV-POOR"], {("high", "high"), ("medium", "high")})
@@ -5194,8 +5211,9 @@ class TestBlocksColumn(unittest.TestCase):
         self.addCleanup(shutil.rmtree, d)
         with open(os.path.join(d, "audit.py"), "w", encoding="utf-8") as fh:
             fh.write('sev = pick()\nfinding("S9-X", 1, sev, "m", [])\n')
-        with open(os.path.join(d, "schema_check.py"), "w", encoding="utf-8") as fh:
-            fh.write("")
+        for empty in ("schema_check.py", "verify.py"):
+            with open(os.path.join(d, empty), "w", encoding="utf-8") as fh:
+                fh.write("")
         self.B.SCRIPTS = d
         with self.assertRaises(SystemExit) as cm:
             self.B.variants()
