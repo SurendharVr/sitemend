@@ -596,3 +596,76 @@ length, verdicts, thresholds and decision rules.
   all PRs and bot PRs beside them.
 
 Decided by (B): SurendharVr. Date: 2026-10-24.
+
+## Addendum 4: postpone the window and widen the sample (draft)
+
+**Status:** draft, written by Claude on 2026-10-24. Not signed. Fields marked `____` are for
+B; the suggested value beside each one is for reference only.
+
+**When.** After `select` wrote the 16-site sample and `window.json` (#107, merged at 04:54
+UTC on 2026-10-24), and before the window opens at 00:00 UTC on 2026-10-25. No PR has been
+checked.
+
+**Why.** 16 sites is a thin sample (Addendum 3, parts 3 and 6). The frame it came from was
+cut short by GitHub, not used up. Each of Addendum 5's code searches returned exactly 1,000
+results, the most GitHub returns for one query: Docusaurus, Astro, VitePress and Next.js
+1,000 each, and Hugo 1,000 for each of its two queries. So repositories that search
+could find were never in the frame. A frame that gets past the cap can supply more sites by
+the same rules.
+
+**1. Postpone the window.** Decided: ____ (suggested: the window does not open on
+2026-10-25. It opens at 00:00 UTC on the day after the widened sample's `repos.json` and
+`window.json` are committed, and runs 8 weeks from then. `window.json` is removed until
+then, so the task9 workflow's polls do nothing.)
+
+This takes effect only if it is on `main` before 2026-10-25T00:00:00Z. If it is not, the
+window opens with the 16, and sites can be added only as a later, separate cohort.
+
+**2. A second frame.** Decided: ____ (suggested: the same five stacks and code searches as
+Addendum 5, each split by file size so that no slice reaches the cap.)
+- **Splitting:** each search runs over size ranges in bytes, starting at `size:0..1000`,
+  `size:1001..3000`, `size:3001..10000` and `size:>10000`. A slice that returns 1,000 results
+  is halved and searched again, until every slice returns fewer.
+- **Saving:** every result is saved, with the date it was taken and the slices used, to
+  `bench/task9/frame2-<stack>.json`, before any filtering. It is taken once.
+- **Limitation:** code search still returns only what GitHub has indexed and ranks, so the
+  frame is still not every site. That is stated in the report, as for the first frame.
+
+**3. The draw from it.** Decided: ____ (suggested: by the same rules, with these
+differences.)
+- **Leave out first:** every repository in the first frame, in any stack, so that no
+  repository is looked at twice.
+- **Order:** sorted by `owner/name`, then shuffled with a fresh `random.Random(20261017)` per
+  stack, in the table's order, and saved to `bench/task9/order2-<stack>.json`.
+- **Eligibility:** as before. 2.1 with Addendum 2's same-owner rule, Addendum 5's rules 4
+  and 5 with Addendum 6, at least 8 merged PRs in the 8 weeks before the draw date, and a
+  homepage.
+- **The draw date stays 2026-10-22,** so every site meets the same history. Homepage and
+  preview checks are read on the day the draw runs, as before.
+- **Recorded in** `bench/task9/draw2.csv` and `candidates2.json`.
+
+**4. Build check and selection.** Decided: ____ (suggested: the second draw's candidates are
+build-checked as 2.2 says. The 16 already selected stay in the sample. Then `select` applies
+2.2 and Addendum 2 to the 16 and the new candidates that built, together:
+- each stack up to 6;
+- the places left, up to 30, from the stacks with candidates left, one at a time in the
+  table's order;
+- the preview top-up to 10, at most 40 in all.)
+
+**5. If the second frame still falls short of 30.** Decided: ____ (suggested: once every
+slice of the second frame has been drawn to its end, the sample is everyone who built, as
+in Addendum 3, and the window opens. No third frame.)
+
+**6. Unchanged:**
+- the frozen version (1.9.1) and the draw date (2026-10-22);
+- the window's length (8 weeks), verdicts, thresholds and decision rules;
+- Addenda 2 and 3, including thresholds on PRs by people and every measure per site.
+
+The report states that the sample was widened after the first selection, and why.
+
+**Code that follows if this is signed,** in a PR merged before the second draw:
+- `task9.py frame2`: the sliced searches, saved before filtering;
+- `task9.py draw --frame 2`: the first frame left out, the new order, the same rules;
+- `select`: the 16 kept, and the second draw's candidates that built added by part 4's rule.
+
+Decided by (B): ____. Date: ____.
