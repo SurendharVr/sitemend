@@ -735,7 +735,7 @@ Decided by (B): SurendharVr. Date: 2026-10-24.
 
 ## Addendum 6 (Task 9): Task 9 is decoupled from the product (2026-10-24, before the window)
 
-**Status:** draft, unsigned. Written by Claude on 2026-10-24.
+**Status:** signed by SurendharVr on 2026-10-24. Written by Claude on 2026-10-24.
 
 **Name.** This is always called "Task 9 Addendum 6". Addendum 6 of
 `bench/PREREGISTRATION.md` is the Node version rule.
@@ -780,4 +780,4 @@ Section 2.3's no-contact rule stays. In addition, there is no outreach to any re
 in `bench/task9/repos.json`, or to the next repositories in draw order that a fresh draw
 would use (`bench/sample/order-*.json`), so a future prospective run stays uncontaminated.
 
-Decided by (B): ____________. Date: ____________.
+Decided by (B): SurendharVr. Date: 2026-10-24.
