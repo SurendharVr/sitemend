@@ -547,7 +547,7 @@ Decided by (B): SurendharVr. Date: 2026-10-21.
 
 ## Addendum 11: outreach reopens, Task 9 decoupled (2026-10-24)
 
-**Status:** draft, unsigned. Written by Claude on 2026-10-24. The full text is Task 9
+**Status:** signed by SurendharVr on 2026-10-24. Written by Claude on 2026-10-24. The full text is Task 9
 Addendum 6, at the end of `bench/PREREGISTRATION-task9.md`.
 
 **1. Outreach reopens now.** This overrides the last lines of Addendum 9, part 7 and
@@ -570,4 +570,4 @@ applies to all public material.
 **4. No further addenda or pre-registration documents for product decisions.** The replay
 and seeded benchmarks continue as release checks.
 
-Decided by (B): ____________. Date: ____________.
+Decided by (B): SurendharVr. Date: 2026-10-24.
