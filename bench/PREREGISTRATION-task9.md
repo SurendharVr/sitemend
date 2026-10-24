@@ -486,12 +486,27 @@ The other 25:
 - **5 failed the homepage check** (2.2).
 - **1 built no HTML pages** (Addendum 7).
 
+`builds.csv` gives as each failure's reason the last line of its build log. The build check
+does not tell a failed build apart from one that put its output somewhere other than the
+stack's default folder: both count as a missing output folder (Addendum 5, rule 6). For
+three of the 19, the last line reads like success:
+- shlinkio/shlink.io: "[build] Complete!";
+- myissue-studio/vue-website-page-builder: "built in 21.72s";
+- ot-nemoto/combine-pdf-files: "(Static) prerendered as static content".
+
+They most likely built into a non-default folder. The logs were not kept, so this is
+recorded as a known ambiguity, not corrected.
+
 Addendum 2 fills the sample to 30 from the frame, but every frame is read to its end, so
 `select` can take only 16. The rules as signed cannot produce a sample.
 
 **1. The sample.** Decided: ____ (suggested: the 16 that built, as listed above, are the
-sample; 2.2's 6 per stack and Addendum 2's fill to 30 do not apply). The alternative is a
-new, dated frame search (not drafted here), which would delay the window.
+sample; 2.2's 6 per stack and Addendum 2's fill to 30 do not apply). Two alternatives were
+considered and are not taken here:
+- **A new, dated frame search,** not drafted, which would delay the window.
+- **A change to the build rule,** rejected. Installing dependencies in the site's own folder,
+  or looking for the output in a non-default folder, would rescue several of the 19. But it
+  changes an eligibility rule after seeing which candidates it helps.
 
 **2. Previews.** 5 of the 16 have the preview flag, and no further flagged candidate built,
 so 2.2's top-up to 10 cannot be met. Decided: ____ (suggested: no top-up; url mode is
@@ -500,32 +515,71 @@ does).
 
 **3. Precision's 20-finding minimum.** Decided: ____ (suggested: unchanged, at least 20
 blocking findings in folder mode). What 16 sites mean for it:
-- **The estimate.** The 16 had 772 merged PRs in the 8 weeks before the draw date. The 1.9.0
-  replay found 86 blocking findings in 556 comparisons (0.155 a comparison), all of them in
-  22 failing comparisons. If the window's PRs number as many, and the gate fails them at the
-  replay's rate, 8 weeks would give about 120 blocking findings, well above 20.
+- **The PRs.** The 16 had 772 PRs merged into their default branch in the 8 weeks before
+  the draw date: 460 by people and 312 by bots, mostly Dependabot. An author counts as a bot
+  if GitHub types it Bot or its login ends in `[bot]`.
+
+  | Site | Merged PRs | By people | By bots |
+  |---|---|---|---|
+  | zelavis/zelavis | 309 | 163 | 146 |
+  | nuthatch-org/nuthatch-frontend | 100 | 100 | 0 |
+  | mia-platform/documentation | 78 | 24 | 54 |
+  | qmBase/docs | 55 | 55 | 0 |
+  | nx-academy/nx-academy.github.io | 29 | 29 | 0 |
+  | jonathanbell/jonathanbell.github.io | 29 | 0 | 29 |
+  | disfordave/provence | 25 | 25 | 0 |
+  | apache/cloudstack-www | 25 | 10 | 15 |
+  | area44/SYWYKE | 23 | 2 | 21 |
+  | actix/actix-website | 17 | 2 | 15 |
+  | maxswinkels/busybar-apps | 16 | 16 | 0 |
+  | honojs/website | 15 | 15 | 0 |
+  | sdkman/sdkman.github.io | 15 | 2 | 13 |
+  | r4ai/r4ai.dev | 15 | 12 | 3 |
+  | knorrlabs/ignition-guides | 11 | 4 | 7 |
+  | emish89/italiapersonalfinance | 10 | 1 | 9 |
+
+- **The estimate.** The 1.9.0 replay found 86 blocking findings in 556 comparisons (0.155 a
+  comparison), all of them in 22 failing comparisons. A dependency bump rarely changes a
+  site's output, so only PRs by people are counted. If the window has as many of those, and
+  the gate fails them at the replay's rate, 8 weeks would give about 70 blocking findings.
+  Without zelavis/zelavis, the site with the most PRs by people, it is about 46.
 - **Why it is a weak estimate:**
   - the replay's commits are not PRs;
   - its findings came from a sample the rules were tuned on;
-  - one site, zelavis/zelavis, made 309 of the 772 PRs. Without it the same arithmetic
-    gives about 70.
+  - merged PRs leave out the PRs closed without merging, which the window also counts (3.2);
+  - an account GitHub types as a person can still be automated.
 - **What 20 would show.** At exactly 20 findings with 19 true (95%), the 95% Wilson interval
   for precision runs from about 76% to 99%. With 16 sites, findings are clustered by site,
   so the interval is wider still. The report states the interval and the number of sites
   the findings came from.
 
-**4. The extension rule (3.1).** Decided: ____ (suggested: unchanged: 4 weeks at a time, up
+**4. Bot PRs in the thresholds.** Section 3.2 counts PRs opened by bots, and reports them
+apart. With 16 sites, bots made 312 of the 772 PRs, and five sites are nearly all bots:
+jonathanbell 29 of 29, area44/SYWYKE 21 of 23, actix 15 of 17, sdkman 13 of 15 and
+italiapersonalfinance 9 of 10. Counted, those PRs enlarge frequency's denominator (PRs
+compared) while rarely holding a regression, so a few sites' dependency bumps could take
+frequency below 1 in 100, whatever the gate does on PRs by people. Precision is unaffected,
+since it counts findings. Decided: ____
+- **(a) Thresholds on PRs by people** (suggested). Frequency and tool failures (section 5)
+  count PRs by people only, and are also reported for all PRs and for bot PRs apart.
+  Precision counts every blocking finding, from any author. This changes 3.2 before any
+  window data. Five of the 16 sites then contribute few or no PRs to the thresholds, which
+  the report states.
+- **(b) As signed.** Bot PRs count toward every threshold, and are also reported apart.
+
+**5. The extension rule (3.1).** Decided: ____ (suggested: unchanged: 4 weeks at a time, up
 to 16 weeks in all, and precision not met if 20 are never reached). With 16 sites rather
 than 30, an extension is more likely if the estimate in part 3 is too high. If 20 blocking
 findings are not reached by week 16, section 6's precision rule applies: outreach stays
 stopped.
 
-**5. One busy site.** zelavis/zelavis alone made 40% of the 16 sites' PRs before the draw,
-so it could carry most of the frequency and precision results. Decided: ____ (suggested:
+**6. One busy site.** zelavis/zelavis alone made 40% of the 16 sites' PRs before the draw,
+and 35% of those by people (163 of 460), so it could carry most of the frequency and
+precision results. Decided: ____ (suggested:
 no cap on any site; every measure is also reported per site, and once more without the site
 with the most PRs compared).
 
-**6. What else 16 sites mean, stated in the report:**
+**7. What else 16 sites mean, stated in the report:**
 - **Per stack:** Docusaurus 6, Astro 8, VitePress 1, Next.js 1, Hugo 0. Results for
   VitePress and Next.js are single sites; nothing is claimed per stack for them.
 - **Production on a preview platform's host:** 2 of the 16, nuthatch-org/nuthatch-frontend
@@ -534,11 +588,13 @@ with the most PRs compared).
   `build` script (Addendum 5's limitation) is left out, so the sample leans toward
   simple, conventionally built sites.
 
-**7. Unchanged:** everything else, including the frozen version (1.9.1), the window's
+**8. Unchanged:** everything else, including the frozen version (1.9.1), the window's
 length, verdicts, thresholds and decision rules.
 
-**Code that follows if this is signed,** in a PR merged before `select` runs: `select`
-takes every candidate that built when fewer than 30 did, instead of refusing. It still
-writes https homepages (Addendum 2, part 4) and `window.json`.
+**Code that follows if this is signed,** in a PR merged before `select` runs:
+- `select` takes every candidate that built when fewer than 30 did, instead of refusing. It
+  still writes https homepages (Addendum 2, part 4) and `window.json`.
+- With part 4 (a), `report` computes frequency and tool failures on PRs by people, and gives
+  all PRs and bot PRs beside them.
 
 Decided by (B): ____. Date: ____.
