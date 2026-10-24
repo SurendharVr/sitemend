@@ -52,7 +52,7 @@ caught, from [`bench/seeded/1.9.0/recall.md`](bench/seeded/1.9.0/recall.md).
 | --- | --- | --- | --- |
 | A new page has no links to it, or links to a path the build doesn't have | `S2-ORPHAN`, `S2-UNREACHABLE`, `S1-BROKEN-LINK` | yes | Real commits: [6](bench/ledger-1.8.0.csv) broken links, [1](bench/ledger-1.8.0.csv) orphaned page. Seeded: a linked page deleted, [10 of 10](bench/seeded/1.9.0/recall.md) |
 | A template produces duplicate pages or duplicate titles | `S3-DUPLICATE-EXACT`, `S3-TITLE-DUPLICATE` | yes | Real commits: [8](bench/ledger-1.8.0.csv) duplicate pages, [11](bench/ledger-1.8.0.csv) duplicate titles. Seeded: title duplicated, [9 of 9](bench/seeded/1.9.0/recall.md) |
-| Pages ship with no title or no H1 | `S3-TITLE-MISSING`, `S2-H1-MISSING` | yes | Real commits: [38](bench/ledger-1.8.0.csv) missing H1. Seeded: title removed, [13 of 13](bench/seeded/1.9.0/recall.md) |
+| Pages ship with no H1 | `S2-H1-MISSING` | yes | Real commits: [38](bench/ledger-1.8.0.csv) |
 | `hreflang` points at a page that doesn't exist | `S1-HREFLANG-BROKEN` | yes | Real commits: [16](bench/ledger-1.8.0.csv) |
 | A page is listed in the sitemap but blocked by `noindex` or `robots.txt` | `S1-INDEX-CONTRADICTION` (critical) | yes | Production: [1 of 20](docs/benchmark-2026-10.md) sites, [148](docs/benchmark-2026-10.md) URLs. Seeded: noindex added, [9 of 9](bench/seeded/1.9.0/recall.md); robots.txt disallows all, [9 of 9](bench/seeded/1.9.0/recall.md) |
 
@@ -63,6 +63,7 @@ caught, from [`bench/seeded/1.9.0/recall.md`](bench/seeded/1.9.0/recall.md).
 | The canonical points off the site, such as at a preview deploy's host | `S1-CANONICAL-OFFSITE` (critical) | yes | Tested on planted defects; not yet observed on a real pull request in our benchmarks. Seeded: preview host in the canonical, [7 of 8](bench/seeded/1.9.0/recall.md) |
 | A preview deploy's host (`*.vercel.app`, `*.netlify.app`) leaked into `og:url`, the sitemap or robots.txt | `S1-HOST-MISMATCH` (critical for a preview host) | yes at critical or high; no at medium, when every URL deliberately names one other host | Tested on planted defects; not yet observed on a real pull request in our benchmarks. Seeded: preview host in the sitemap, [11 of 11](bench/seeded/1.9.0/recall.md). Production: [0 of 20](docs/benchmark-2026-10.md) sites |
 | A page lost its canonical | `S1-CANONICAL-MISSING` (medium) | no | Reported in the PR comment; does not fail the check. Seeded: canonical removed, [8 of 8](bench/seeded/1.9.0/recall.md) detected, [0](bench/seeded/1.9.0/recall.md) gate failures by design |
+| A page lost its `<title>` | `S3-TITLE-MISSING` (critical) | yes | Tested on planted defects; not yet observed on a real pull request in our benchmarks. Seeded: title removed, [13 of 13](bench/seeded/1.9.0/recall.md) |
 | Missing URLs answer 200 instead of 404 (an SPA catch-all, a redirect to home) | `S1-SOFT-404` (high) | yes, on live URLs only | Blocks on live URLs only (the [preview workflow](examples/github-action/preview.yml), or `check` against URLs), never on a build folder. Unit-tested; not in the seeded benchmark; [0 of 20](docs/benchmark-2026-10.md) production sites served one |
 | Content or head tags only appear after JavaScript runs | `S1-JS-SHELL`, `S1-JS-DEPENDENT`, `S1-JS-HEAD-MISMATCH` | only `S1-JS-HEAD-MISMATCH`, with `--render` | In folder mode, an advisory `S1-JS-SHELL`. Blocking only with `--render` on a live URL (`sitemend audit` or `verify`; the Action does not render), and then only `S1-JS-HEAD-MISMATCH`, which covers canonical or robots directives that change when JavaScript runs. Content that appears only after JavaScript (`S1-JS-DEPENDENT`) never fails anywhere |
 
@@ -159,7 +160,7 @@ from that:
 | **Structured data** | Required properties, if it checks at all | Required properties, and whether the markup claims things the page never shows, such as review authors |
 | **Applying fixes** | Suggestions | One approved batch at a time, then a re-crawl to confirm it worked. Nothing is edited without approval |
 | **In CI** | No | The example GitHub Action fails a PR only on findings it introduces, and comments the new and closed ones on the PR |
-| **Tested** | Not testable | 341 tests, many pinned to false positives found on real runs |
+| **Tested** | Not testable | 344 tests, many pinned to false positives found on real runs |
 
 **How big is the gap?** We measured it on the demo site (5 pages, 14 planted defects).
 Three plain "audit this site" runs by an AI agent with read-only file access found 14, 12
@@ -455,7 +456,7 @@ only requests your own site.
 python tests/test_skill.py
 ```
 
-341 tests (two are opt-in: real Lighthouse and real Chrome rendering), no fixture files — each builds a throwaway site in a temp directory. They pin
+344 tests (two are opt-in: real Lighthouse and real Chrome rendering), no fixture files — each builds a throwaway site in a temp directory. They pin
 down calibration decisions made after real false positives: build-directory exclusion,
 deliberate `noindex`, finding grouping, title thresholds, heading order, schema claim
 corroboration, gate boundaries. A failure means *"was this behaviour meant to change"*,
