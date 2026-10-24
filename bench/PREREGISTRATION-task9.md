@@ -458,10 +458,10 @@ None of it changes which repositories were looked at, or their order.
 
 Decided by (B): SurendharVr. Date: 2026-10-23.
 
-## Addendum 3: the sample is the 16 that built (draft)
+## Addendum 3: the sample is the 16 that built (2026-10-24, before select)
 
-**Status:** draft, written by Claude on 2026-10-24. Not signed. Fields marked `____` are for
-B; the suggested value beside each one is for reference only.
+**Status:** signed by SurendharVr on 2026-10-24. Written by Claude on 2026-10-24; every
+choice below was proposed by Claude and accepted as written.
 
 **When.** After the build check, before `select` and before any data from the window.
 Which candidates built is known, so each choice here is made knowing it. That is stated in
@@ -500,8 +500,8 @@ recorded as a known ambiguity, not corrected.
 Addendum 2 fills the sample to 30 from the frame, but every frame is read to its end, so
 `select` can take only 16. The rules as signed cannot produce a sample.
 
-**1. The sample.** Decided: ____ (suggested: the 16 that built, as listed above, are the
-sample; 2.2's 6 per stack and Addendum 2's fill to 30 do not apply). Two alternatives were
+**1. The sample.** Decided: the 16 that built, as listed above, are the sample; 2.2's 6 per
+stack and Addendum 2's fill to 30 do not apply. Two alternatives were
 considered and are not taken here:
 - **A new, dated frame search,** not drafted, which would delay the window.
 - **A change to the build rule,** rejected. Installing dependencies in the site's own folder,
@@ -509,12 +509,11 @@ considered and are not taken here:
   changes an eligibility rule after seeing which candidates it helps.
 
 **2. Previews.** 5 of the 16 have the preview flag, and no further flagged candidate built,
-so 2.2's top-up to 10 cannot be met. Decided: ____ (suggested: no top-up; url mode is
-measured on what those 5 sites' PRs give, and is reported apart, as section 5 already
-does).
+so 2.2's top-up to 10 cannot be met. Decided: no top-up; url mode is measured on what
+those 5 sites' PRs give, and is reported apart, as section 5 already does.
 
-**3. Precision's 20-finding minimum.** Decided: ____ (suggested: unchanged, at least 20
-blocking findings in folder mode). What 16 sites mean for it:
+**3. Precision's 20-finding minimum.** Decided: unchanged, at least 20 blocking findings in
+folder mode. What 16 sites mean for it:
 - **The PRs.** The 16 had 772 PRs merged into their default branch in the 8 weeks before
   the draw date: 460 by people and 312 by bots, mostly Dependabot. An author counts as a bot
   if GitHub types it Bot or its login ends in `[bot]`.
@@ -559,25 +558,24 @@ jonathanbell 29 of 29, area44/SYWYKE 21 of 23, actix 15 of 17, sdkman 13 of 15 a
 italiapersonalfinance 9 of 10. Counted, those PRs enlarge frequency's denominator (PRs
 compared) while rarely holding a regression, so a few sites' dependency bumps could take
 frequency below 1 in 100, whatever the gate does on PRs by people. Precision is unaffected,
-since it counts findings. Decided: ____
-- **(a) Thresholds on PRs by people** (suggested). Frequency and tool failures (section 5)
+since it counts findings. Decided: (a).
+- **(a) Thresholds on PRs by people** (accepted). Frequency and tool failures (section 5)
   count PRs by people only, and are also reported for all PRs and for bot PRs apart.
   Precision counts every blocking finding, from any author. This changes 3.2 before any
   window data. Five of the 16 sites then contribute few or no PRs to the thresholds, which
   the report states.
 - **(b) As signed.** Bot PRs count toward every threshold, and are also reported apart.
 
-**5. The extension rule (3.1).** Decided: ____ (suggested: unchanged: 4 weeks at a time, up
-to 16 weeks in all, and precision not met if 20 are never reached). With 16 sites rather
+**5. The extension rule (3.1).** Decided: unchanged: 4 weeks at a time, up to 16 weeks in
+all, and precision not met if 20 are never reached. With 16 sites rather
 than 30, an extension is more likely if the estimate in part 3 is too high. If 20 blocking
 findings are not reached by week 16, section 6's precision rule applies: outreach stays
 stopped.
 
 **6. One busy site.** zelavis/zelavis alone made 40% of the 16 sites' PRs before the draw,
 and 35% of those by people (163 of 460), so it could carry most of the frequency and
-precision results. Decided: ____ (suggested:
-no cap on any site; every measure is also reported per site, and once more without the site
-with the most PRs compared).
+precision results. Decided: no cap on any site; every measure is also reported per site,
+and once more without the site with the most PRs compared.
 
 **7. What else 16 sites mean, stated in the report:**
 - **Per stack:** Docusaurus 6, Astro 8, VitePress 1, Next.js 1, Hugo 0. Results for
@@ -597,4 +595,4 @@ length, verdicts, thresholds and decision rules.
 - With part 4 (a), `report` computes frequency and tool failures on PRs by people, and gives
   all PRs and bot PRs beside them.
 
-Decided by (B): ____. Date: ____.
+Decided by (B): SurendharVr. Date: 2026-10-24.
