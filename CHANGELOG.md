@@ -1,17 +1,5 @@
 # Changelog
 
-## Unreleased
-
-- **Task 9 harness (`bench/task9/task9.py`, `.github/workflows/task9.yml`).** The prospective
-  run as pre-registered: the draw (eligibility, build check, the size rule), a poll every 15
-  minutes that checks each new PR head in folder and url mode, production audits after
-  merges, the two ledgers, and the summary with section 6's decision rules. The checks that
-  build strangers' code run with a read-only token, no secrets and no saved credentials;
-  only the poll job, which runs this repository's code, may push, and only to the
-  `task9-data` branch. A poll never waits for checks: it files the results of earlier runs'
-  finished checks, so one slow check delays only its own result. Tested on fixtures only: nothing has run on a drawn repository.
-  `replay.audit` takes an optional timeout (default none, as before).
-
 ## 1.10.0 - 2026-10-24
 
 The example workflows and README pin `@v1.10.0`. A minor release: one new rule,
@@ -35,6 +23,15 @@ The example workflows and README pin `@v1.10.0`. A minor release: one new rule,
   `verify` run without both crawls (`sitemend verify --baseline`) skips the check. No
   single-build audit changes: `examples/demo-site` and `examples/demo-site-intl` give the
   same 24 and 11 findings. No other rule, threshold or severity changes.
+- **Task 9 harness (`bench/task9/task9.py`, `.github/workflows/task9.yml`).** The prospective
+  run as pre-registered: the draw (eligibility, build check, the size rule), a poll every 15
+  minutes that checks each new PR head in folder and url mode, production audits after
+  merges, the two ledgers, and the summary with section 6's decision rules. The checks that
+  build strangers' code run with a read-only token, no secrets and no saved credentials;
+  only the poll job, which runs this repository's code, may push, and only to the
+  `task9-data` branch. A poll never waits for checks: it files the results of earlier runs'
+  finished checks, so one slow check delays only its own result. Tested on fixtures only: nothing has run on a drawn repository.
+  `replay.audit` takes an optional timeout (default none, as before).
 
 ## 1.9.1 - 2026-10-22
 
