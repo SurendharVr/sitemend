@@ -457,3 +457,88 @@ version (1.9.1), the draw date, the window, verdicts, thresholds and decision ru
 None of it changes which repositories were looked at, or their order.
 
 Decided by (B): SurendharVr. Date: 2026-10-23.
+
+## Addendum 3: the sample is the 16 that built (draft)
+
+**Status:** draft, written by Claude on 2026-10-24. Not signed. Fields marked `____` are for
+B; the suggested value beside each one is for reference only.
+
+**When.** After the build check, before `select` and before any data from the window.
+Which candidates built is known, so each choice here is made knowing it. That is stated in
+the report.
+
+**The build check, as run.** All 41 candidates in `bench/task9/candidates.json` (#103)
+were built on GitHub Actions run 40051480416 on 2026-10-24, each at its default branch's
+head on the draw date. Every outcome is in `bench/task9/builds.csv`:
+
+| Stack | Built / checked | Built (P: has a preview) |
+|---|---|---|
+| Docusaurus | 6 / 17 | mia-platform/documentation, sdkman/sdkman.github.io, apache/cloudstack-www, actix/actix-website (P), qmBase/docs, knorrlabs/ignition-guides |
+| Astro | 8 / 17 | jonathanbell/jonathanbell.github.io, emish89/italiapersonalfinance (P), r4ai/r4ai.dev (P), nx-academy/nx-academy.github.io, nuthatch-org/nuthatch-frontend, area44/SYWYKE (P), maxswinkels/busybar-apps, zelavis/zelavis |
+| VitePress | 1 / 3 | honojs/website |
+| Hugo | 0 / 0 | none |
+| Next.js | 1 / 4 | disfordave/provence (P) |
+
+The other 25:
+- **19 did not build under Addendum 5's rule 5.** Their dependencies were not installed in
+  the site's own folder, a tool was missing, the Node version was wrong, the project's
+  build failed, or the output was not in the stack's default folder.
+- **5 failed the homepage check** (2.2).
+- **1 built no HTML pages** (Addendum 7).
+
+Addendum 2 fills the sample to 30 from the frame, but every frame is read to its end, so
+`select` can take only 16. The rules as signed cannot produce a sample.
+
+**1. The sample.** Decided: ____ (suggested: the 16 that built, as listed above, are the
+sample; 2.2's 6 per stack and Addendum 2's fill to 30 do not apply). The alternative is a
+new, dated frame search (not drafted here), which would delay the window.
+
+**2. Previews.** 5 of the 16 have the preview flag, and no further flagged candidate built,
+so 2.2's top-up to 10 cannot be met. Decided: ____ (suggested: no top-up; url mode is
+measured on what those 5 sites' PRs give, and is reported apart, as section 5 already
+does).
+
+**3. Precision's 20-finding minimum.** Decided: ____ (suggested: unchanged, at least 20
+blocking findings in folder mode). What 16 sites mean for it:
+- **The estimate.** The 16 had 772 merged PRs in the 8 weeks before the draw date. The 1.9.0
+  replay found 86 blocking findings in 556 comparisons (0.155 a comparison), all of them in
+  22 failing comparisons. If the window's PRs number as many, and the gate fails them at the
+  replay's rate, 8 weeks would give about 120 blocking findings, well above 20.
+- **Why it is a weak estimate:**
+  - the replay's commits are not PRs;
+  - its findings came from a sample the rules were tuned on;
+  - one site, zelavis/zelavis, made 309 of the 772 PRs. Without it the same arithmetic
+    gives about 70.
+- **What 20 would show.** At exactly 20 findings with 19 true (95%), the 95% Wilson interval
+  for precision runs from about 76% to 99%. With 16 sites, findings are clustered by site,
+  so the interval is wider still. The report states the interval and the number of sites
+  the findings came from.
+
+**4. The extension rule (3.1).** Decided: ____ (suggested: unchanged: 4 weeks at a time, up
+to 16 weeks in all, and precision not met if 20 are never reached). With 16 sites rather
+than 30, an extension is more likely if the estimate in part 3 is too high. If 20 blocking
+findings are not reached by week 16, section 6's precision rule applies: outreach stays
+stopped.
+
+**5. One busy site.** zelavis/zelavis alone made 40% of the 16 sites' PRs before the draw,
+so it could carry most of the frequency and precision results. Decided: ____ (suggested:
+no cap on any site; every measure is also reported per site, and once more without the site
+with the most PRs compared).
+
+**6. What else 16 sites mean, stated in the report:**
+- **Per stack:** Docusaurus 6, Astro 8, VitePress 1, Next.js 1, Hugo 0. Results for
+  VitePress and Next.js are single sites; nothing is claimed per stack for them.
+- **Production on a preview platform's host:** 2 of the 16, nuthatch-org/nuthatch-frontend
+  and area44/SYWYKE. Addendum 2, part 3 applies.
+- **What the sample excludes:** every site whose real deploy needs more than its own
+  `build` script (Addendum 5's limitation) is left out, so the sample leans toward
+  simple, conventionally built sites.
+
+**7. Unchanged:** everything else, including the frozen version (1.9.1), the window's
+length, verdicts, thresholds and decision rules.
+
+**Code that follows if this is signed,** in a PR merged before `select` runs: `select`
+takes every candidate that built when fewer than 30 did, instead of refusing. It still
+writes https homepages (Addendum 2, part 4) and `window.json`.
+
+Decided by (B): ____. Date: ____.
